@@ -354,8 +354,8 @@ namespace sensu_client.net
         {
             var temptokens = new List<string>();
             var command = check["command"].ToString();
-            var blah = new Regex(":::(.*?):::", RegexOptions.Compiled);
-            command = blah.Replace(command, match =>
+            var regex = new Regex(":::(.*?):::", RegexOptions.Compiled);
+            command = regex.Replace(command, match =>
             {
                 var matched = "";
                 foreach (var p in match.Value.Split('.'))
@@ -369,7 +369,21 @@ namespace sensu_client.net
                         break;
                     }
                 }
-                if (string.IsNullOrEmpty(matched)) { temptokens.Add(match.Value); }
+
+                if (string.IsNullOrEmpty(matched))
+                {
+
+                    if (match.Value.Contains("|")) //something like  this: :::cpu.usage|80:::
+                    {
+
+                        matched += match.Value.Remove(0, match.Value.IndexOf("|")+1).ToString().Replace(":::","").Trim();
+                    }
+                    else
+                    {
+                        temptokens.Add(match.Value);
+                    }
+
+                }
                 return matched;
             });
             unmatchedTokens = temptokens;
