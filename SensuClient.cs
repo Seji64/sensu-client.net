@@ -15,7 +15,8 @@ using Newtonsoft.Json.Linq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
-using RabbitMQ.Client.Framing.v0_9_1;
+using RabbitMQ.Client.Framing;
+using System.Threading.Tasks;
 
 namespace sensu_client.net
 {
@@ -31,18 +32,17 @@ namespace sensu_client.net
         private static bool _safemode;
         private static readonly List<string> ChecksInProgress = new List<string>();
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { Formatting = Formatting.None };
+
         public static void Start()
         {
             LoadConfiguration();
-
-            
+       
             //Start Keepalive thread
             var keepalivethread = new Thread(KeepAliveScheduler);
             keepalivethread.Start();
 
             //Start subscriptions thread.
-            var subscriptionsthread = new Thread(Subscriptions);
-            subscriptionsthread.Start();
+            Subscribe();
         }
 
         public static void LoadConfiguration()
@@ -60,7 +60,7 @@ namespace sensu_client.net
             }
             catch (FileNotFoundException ex)
             {
-                Log.ErrorException(string.Format("Config file not found: {0}", configfile), ex);
+                Log.Error(ex, string.Format("Config file not found: {0}", configfile));
                 _configsettings = new JObject();
             }
             //Grab configs from dir.
@@ -149,70 +149,80 @@ namespace sensu_client.net
             }
         }
 
-        private static void Subscriptions()
+        private static void Subscribe()
+
         {
+
+            IModel m_rabbit_channel = null;
+            EventingBasicConsumer m_rabbit_consumer = null;
+
             Log.Debug("Subscribing to client subscriptions");
-            IModel ch = null;
-            QueueingBasicConsumer consumer = null;
-            while (true)
+
+            Log.Warn("Creating rabbitMQ Connection");
+
+            var m_rabbit_connection = GetRabbitConnection();
+
+            m_rabbit_channel = m_rabbit_connection.CreateModel();
+
+            var m_my_queue = m_rabbit_channel.QueueDeclare("", false, false, true, null);
+
+            foreach (var subscription in _configsettings["client"]["subscriptions"])
+
             {
-                if (ch != null && ch.IsOpen && consumer.IsRunning)
+
+                Log.Debug("Binding queue {0} to exchange {1}", m_my_queue.QueueName, subscription);
+
+                m_rabbit_channel.QueueBind(m_my_queue.QueueName, subscription.ToString(), "");
+                m_rabbit_consumer = new EventingBasicConsumer(m_rabbit_channel);
+
+                if (m_rabbit_channel != null && m_rabbit_channel.IsOpen)
                 {
-                    object msg;
-                    consumer.Queue.Dequeue(100, out msg);
-                    if (msg != null)
-                    {
-                        var payload = Encoding.UTF8.GetString(((BasicDeliverEventArgs)msg).Body);
-                        try
-                        {
-                            var check = JObject.Parse(payload);
-                            Log.Debug("Received check request: {0}",
-                                      JsonConvert.SerializeObject(check, SerializerSettings));
-                            ProcessCheck(check);
-                        }
-                        catch (JsonReaderException)
-                        {
-                            Log.Error("Malformed Check: {0}", payload);
-                        }
-                    }
+                    m_rabbit_consumer.Received += SubscriptionReceived;
+                    m_rabbit_channel.BasicConsume(m_my_queue.QueueName, true, m_rabbit_consumer);
                 }
                 else
                 {
-                    Log.Error("rMQ Q is closed, Getting connection");
-                    var connection = GetRabbitConnection();
-                    if (connection == null)
-                    {
-                        //Do nothing - we'll loop around the while loop again with everything null and retry the connection.
-                    }
-                    else
-                    {
-                        ch = connection.CreateModel();
-                        var q = ch.QueueDeclare("", false, false, true, null);
-                        foreach (var subscription in _configsettings["client"]["subscriptions"])
-                        {
-                            Log.Debug("Binding queue {0} to exchange {1}", q.QueueName, subscription);
-                            ch.QueueBind(q.QueueName, subscription.ToString(), "");
-                        }
-                        consumer = new QueueingBasicConsumer(ch);
-                        ch.BasicConsume(q.QueueName, true, consumer);
-                    }
+                    //Failed to open
                 }
-                //Lets us quit while we're still sleeping.
-                lock (MonitorObject)
-                {
-                    if (_quitloop)
-                    {
-                        Log.Warn("Quitloop set, exiting main loop");
-                        break;
-                    }
-                    Monitor.Wait(MonitorObject, KeepAliveTimeout);
-                    if (_quitloop)
-                    {
-                        Log.Warn("Quitloop set, exiting main loop");
-                        break;
-                    }
-                }
+
             }
+
+        }
+
+        private static void SubscriptionReceived(object sender, BasicDeliverEventArgs e)
+        {
+            var m_payload = String.Empty;
+
+            try
+
+            {
+
+                Log.Debug("Received check request");
+
+                if (e.Body != null) {
+
+                    m_payload = Encoding.UTF8.GetString(e.Body);
+                    var m_check = JObject.Parse(m_payload);
+
+                    Log.Debug("Payload Data: {0}", JsonConvert.SerializeObject(m_check, SerializerSettings));
+
+                    ProcessCheck(m_check);
+
+                } else {
+                    throw new Exception("payload empty or null");
+                }
+
+            }
+
+            catch (JsonReaderException json_r_ex)
+            {
+                Log.Error(json_r_ex, "Malformed Check request: {0}", m_payload);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "failed to process check request!");
+            }
+
         }
 
         public static void ProcessCheck(JObject check)
@@ -436,12 +446,12 @@ namespace sensu_client.net
                     }
                     catch (ConnectFailureException ex)
                     {
-                        Log.ErrorException("unable to open rMQ connection", ex);
+                        Log.Error(ex, "unable to open rMQ connection");
                         return null;
                     }
                     catch (BrokerUnreachableException ex)
                     {
-                        Log.ErrorException("rMQ endpoint unreachable", ex);
+                        Log.Error(ex, "rMQ endpoint unreachable");
                         return null;
                     }
                 }
