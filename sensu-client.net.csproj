@@ -64,6 +64,12 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <None Include=".vs\sensu-client.net\v15\Server\sqlite3\db.lock" />
+    <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide" />
+    <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide-shm" />
+    <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide-wal" />
+    <None Include=".vs\slnx.sqlite" />
+    <None Include=".vs\VSWorkspaceState.json" />
     <None Include="app.config" />
     <Content Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
