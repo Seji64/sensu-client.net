@@ -16,13 +16,11 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Client.Framing;
-using System.Threading.Tasks;
 
 namespace sensu_client.net
 {
     public class SensuClient : ServiceBase
     {
-
         private static IConnection m_rabbitmq_connection;
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
         private const int KeepAliveTimeout = 20000;
@@ -36,6 +34,7 @@ namespace sensu_client.net
 
         public static void Start()
         {
+
             LoadConfiguration();
 
             Connect2RabbitMQ();
