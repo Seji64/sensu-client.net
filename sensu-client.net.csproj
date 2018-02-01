@@ -58,7 +58,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CheckInProgressException.cs" />
+    <Compile Include="OrderedContractResolver.cs" />
+    <Compile Include="Exceptions\CheckInProgressException.cs" />
     <Compile Include="Exceptions\EmptyCheckNameException.cs" />
     <Compile Include="Exceptions\InvalidPluginException.cs" />
     <Compile Include="Exceptions\UnexpectedCheckException.cs" />

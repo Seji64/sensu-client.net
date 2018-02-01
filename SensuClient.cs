@@ -31,7 +31,7 @@ namespace sensu_client.net
         private static JObject _configsettings;
         private static bool _safemode;
         private static readonly List<string> ChecksInProgress = new List<string>();
-        private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { Formatting = Formatting.None };
+        private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { ContractResolver = new OrderedContractResolver(), Formatting = Formatting.None };
         private static Program m_program_base;
         private static object m_lock_checkinprogress;
 
@@ -143,6 +143,7 @@ namespace sensu_client.net
 
                                 var payload = _configsettings["client"];
                                 payload["timestamp"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
+                                payload["version"] = ".NET 1.0.0";
 
                                 Log.Debug("Publishing keepalive");
 
@@ -198,7 +199,7 @@ namespace sensu_client.net
 
             var m_my_queue = m_rabbitmq_channel.QueueDeclare("", false, false, true, null);
 
-            m_rabbitmq_channel.BasicQos(0, 1, false);
+            //m_rabbitmq_channel.BasicQos(0, 1, false);
 
             foreach (var subscription in _configsettings["client"]["subscriptions"])
             {
@@ -258,18 +259,35 @@ namespace sensu_client.net
             payload["check"] = check;
             payload["client"] = _configsettings["client"]["name"];
 
-            Log.Info("Publishing Check {0}", JsonConvert.SerializeObject(payload, SerializerSettings));
-            using (IModel m_rabbitmq_channel = m_rabbitmq_connection.CreateModel())
+            try
             {
-                var properties = new BasicProperties
+
+                Log.Info("Publishing Check Result {0}", JsonConvert.SerializeObject(payload, SerializerSettings));
+                using (IModel m_rabbitmq_channel = m_rabbitmq_connection.CreateModel())
                 {
-                    ContentType = "application/octet-stream",
-                    Priority = 0,
-                    DeliveryMode = 1
-                };
-                m_rabbitmq_channel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
+                    var properties = new BasicProperties
+                    {
+                        ContentType = "application/octet-stream",
+                        Priority = 0,
+                        DeliveryMode = 1
+                    };
+                    m_rabbitmq_channel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
+                }
+
             }
-            ChecksInProgress.Remove(check["name"].ToString());
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Publishing Check Result failed!");
+            }
+            finally
+            {
+                lock (m_lock_checkinprogress)
+                {
+                    if (ChecksInProgress.Contains(check["name"].ToString()))
+                    { ChecksInProgress.Remove(check["name"].ToString()); }
+                }
+            }
+
         }
 
         public static void ExecuteCheckCommand(JObject check)
@@ -342,8 +360,9 @@ namespace sensu_client.net
                 {
 
                     Task<ExecuteResult> m_check_task = null;
-                    CancellationTokenSource m_check_cancelationtokensrc = new CancellationTokenSource();
+                    CancellationTokenSource m_check_cancelationtokensrc = null;
                     CancellationToken m_check_cancelationtoken;
+                    ExecuteResult m_plugin_return = null;
 
                     Log.Debug("Checking inf any plugin has register a handler for command {0}", m_checkcommand);
 
@@ -357,7 +376,9 @@ namespace sensu_client.net
                             try
                             {
 
-                                ExecuteResult m_plugin_return = new ExecuteResult();
+                                m_check_cancelationtokensrc = new CancellationTokenSource();
+                                m_plugin_return = new ExecuteResult();
+                                m_stopwatch.Reset();
 
                                 Log.Debug("Passing Command to plugin {0}", m_plugin.Name());
 
@@ -371,16 +392,18 @@ namespace sensu_client.net
 
                                 if (!m_check_timeout.Equals(TimeSpan.MinValue))
                                 {
-                                    m_check_cancelationtokensrc.CancelAfter(m_check_timeout);
+                                    m_check_task.Wait((int)m_check_timeout.TotalMilliseconds, m_check_cancelationtoken);
                                 }
-
-                                m_check_task.Wait(m_check_cancelationtoken);
-
+                                else
+                                { 
+                                    m_check_task.Wait();
+                                }
+               
                                 if (!m_check_task.IsCompleted | m_check_task.IsCanceled)
                                 { 
                                     throw new Exception("Check did not completed within the configured timeout!");
                                 }
-                                
+
                                 m_plugin_return = m_check_task.Result;
 
                                 Log.Debug("Plugin Return: {0} / ExitCode: {1}", m_plugin_return.Output, m_plugin_return.ExitCode);
@@ -392,11 +415,24 @@ namespace sensu_client.net
                             catch (Exception ex)
                             {
                                 Log.Error(ex, ex.Message);
-                                throw new UnexpectedCheckException(ex.Message);
+                                
+                                //Print error of innerexception cause we using Tasks
+                                if (ex.InnerException != null)
+                                {
+                                    Log.Error(ex, ex.InnerException.Message);
+                                    throw new UnexpectedCheckException(ex.InnerException.Message);
+                                }
+                                else
+                                {
+                                    throw new UnexpectedCheckException(ex.Message);
+                                }                             
+                                
                             }
                             finally
                             {
                                 m_stopwatch.Stop();
+
+                                check["executed"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
                                 check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
 
                                 if (m_check_task != null)
@@ -460,9 +496,11 @@ namespace sensu_client.net
                     finally
                     {
                         m_stopwatch.Stop();
+                       
+                        check["executed"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
                         check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
-                        
-                        if(m_check_process !=null)
+
+                        if (m_check_process !=null)
                         {
                             m_check_process.Dispose();
                         }
@@ -507,161 +545,24 @@ namespace sensu_client.net
             finally
             {
 
-                lock (m_lock_checkinprogress)
-                {
-                    if (ChecksInProgress.Contains(check["name"].ToString()))
-                    { ChecksInProgress.Remove(check["name"].ToString()); }
-                }
-
                 if (!m_skip_publish)
                 {
                     PublishResult(check);
+                }
+                else
+                {
+                    Log.Debug("Skipped Check Result publish - trying to rmeove from 'CheckInProgressList'");
+
+                    lock (m_lock_checkinprogress)
+                    {
+                        if (ChecksInProgress.Contains(check["name"].ToString()))
+                        { ChecksInProgress.Remove(check["name"].ToString()); }
+                    }
                 }
 
             }
 
         }
-
-        //public static void ExecuteCheckCommand(JObject check)
-        //{
-
-        //    Log.Debug("Attempting to execute check command {0}", JsonConvert.SerializeObject(check, SerializerSettings));
-        //    if (check["name"] == null)
-        //    {
-        //        check["output"] = "Check didn't have a valid name";
-        //        check["status"] = 3;
-        //        check["handle"] = false;
-        //        PublishResult(check);
-        //        return;
-        //    }
-        //    if (!ChecksInProgress.Contains(check["name"].ToString()))
-        //    {
-        //        ChecksInProgress.Add(check["name"].ToString());
-        //        List<string> unmatchedTokens;
-        //        var command = SubstitueCommandTokens(check, out unmatchedTokens);
-        //        var stopwatch = new Stopwatch();
-        //        command = command.Trim();
-        //        if (unmatchedTokens == null || unmatchedTokens.Count == 0)
-        //        {
-        //            var checkCommand = "";
-        //            var checkArgs = "";
-        //            if (command.Contains(" "))
-        //            {
-        //                var parts = command.Split(" ".ToCharArray(), 2);
-        //                checkCommand = parts[0];
-        //                checkArgs = parts[1];
-        //            }
-        //            else
-        //            {
-        //                checkCommand = command;
-        //            }
-
-
-
-
-        //            #region "Plugin Processing"
-
-        //            if (m_program_base.Plugins .Count() !=0 && checkCommand.StartsWith("!"))
-        //            {
-
-        //                Log.Debug("Command: {0}", checkCommand);
-        //                Log.Debug("Commands Args: {0}", checkArgs);
-
-        //                Log.Debug("Checking inf any plugin has register a handler for command {0}", checkCommand);
-
-        //                foreach (ISensuClientPlugin m_plugin in m_program_base.Plugins)
-        //                {
-
-        //                    if (m_plugin.Handlers().Any(handler => handler.ToLower().Equals(checkCommand.ToLower())))
-        //                    {
-        //                        Log.Debug("Plugin {0} provides a handler for command {1}", m_plugin.Name(), checkCommand);
-
-        //                        try
-        //                        {
-
-        //                            ExecuteResult m_plugin_return = new ExecuteResult();
-
-        //                            Log.Debug("Passing Command to plugin {0}", m_plugin.Name());
-
-        //                            Arguments m_command_args = new Arguments(Arguments.SplitCommandLine(checkArgs));
-
-
-
-        //                            m_plugin_return = m_plugin.execute(checkCommand, m_command_args);
-
-        //                            Log.Debug("Plugin Return: {0} / ExitCode: {1}", m_plugin_return.Output, m_plugin_return.ExitCode);
-
-        //                        }
-        //                        catch (Exception ex)
-        //                        {
-        //                            Log.Error(ex, ex.Message);
-        //                            check["output"] = string.Format("Unexpected error: {0}", ex.Message);
-        //                            check["status"] = 2;
-        //                        }
-        //                    }
-
-        //                }
-
-        //            }
-        //            #endregion
-        //            else
-        //            {
-        //                var processstartinfo = new ProcessStartInfo(checkCommand)
-        //                {
-        //                    WindowStyle = ProcessWindowStyle.Hidden,
-        //                    UseShellExecute = false,
-        //                    RedirectStandardError = true,
-        //                    RedirectStandardInput = true,
-        //                    RedirectStandardOutput = true,
-        //                    Arguments = checkArgs
-        //                };
-        //                var process = new Process { StartInfo = processstartinfo };             
-        //                try
-        //                {
-        //                    stopwatch.Start();
-        //                    process.Start();
-        //                    if (check["timeout"] != null)
-        //                    {
-        //                        if (!process.WaitForExit(1000 * int.Parse(check["timeout"].ToString())))
-        //                        {
-        //                            process.Kill();
-        //                        }
-        //                    }
-        //                    else
-        //                    {
-        //                        process.WaitForExit();
-        //                    }
-
-        //                    check["output"] = string.Format("{0}{1}", process.StandardOutput.ReadToEnd(), process.StandardError.ReadToEnd());
-        //                    check["status"] = process.ExitCode;
-        //                }
-        //                catch (Win32Exception ex)
-        //                {
-        //                    check["output"] = string.Format("Unexpected error: {0}", ex.Message);
-        //                    check["status"] = 2;
-        //                }
-        //                stopwatch.Stop();
-
-        //                check["duration"] = string.Format("{0:f3}", ((float)stopwatch.ElapsedMilliseconds) / 1000);
-        //                PublishResult(check);
-        //            }
-
-        //        }
-        //        else
-        //        {
-        //            check["output"] = string.Format("Unmatched command tokens: {0}",
-        //                                            string.Join(",", unmatchedTokens.ToArray()));
-        //            check["status"] = 3;
-        //            check["handle"] = false;
-        //            PublishResult(check);
-        //            ChecksInProgress.Remove(check["name"].ToString());
-        //        }
-        //    }
-        //    else
-        //    {
-        //        Log.Warn("Previous check command execution in progress {0}", check["command"]);
-        //    }
-        //}
 
         private static string SubstitueCommandTokens(JObject check, out List<string> unmatchedTokens)
         {
