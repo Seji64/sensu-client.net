@@ -4,6 +4,7 @@ using System.ComponentModel.Composition.Hosting;
 using System.ServiceProcess;
 using System.Text;
 using NLog;
+using sensu_client.net.Exceptions;
 using sensu_client.net.pluginterface;
 
 namespace sensu_client.net
@@ -13,6 +14,9 @@ namespace sensu_client.net
         [ImportMany(typeof(ISensuClientPlugin))]
         private ISensuClientPlugin[] m_plugins = null;
         static Logger _log;
+
+        public ISensuClientPlugin[] Plugins => m_plugins;
+
         static void Main()
         {
             _log = LogManager.GetCurrentClassLogger();
@@ -28,7 +32,7 @@ namespace sensu_client.net
             _log.Error("Global Exception handler called with exectpion: {0}", e.ExceptionObject);
         }
 
-        void Run()
+        public void LoadPlugins()
         {
 
             #region "Loading Plugins"
@@ -48,16 +52,17 @@ namespace sensu_client.net
                 {
                     StringBuilder m_plugin_info = new StringBuilder();
 
-                    if (m_plugin.Name() != null && !String.IsNullOrWhiteSpace(m_plugin.Name()) && m_plugin.GUID() != null && !String.IsNullOrWhiteSpace(m_plugin.GUID().ToString()))
+                    try
                     {
 
-                        if (m_plugin.Handlers().Count == 0)
+                        if (m_plugin.Name() != null && !String.IsNullOrWhiteSpace(m_plugin.Name()) && m_plugin.GUID() != null && !String.IsNullOrWhiteSpace(m_plugin.GUID().ToString()))
                         {
-                            _log.Warn("Plugin {0} / {1} has no valid Handlers to register!", m_plugin.Name(), m_plugin.GUID().ToString());
-                        }
-                        else
-                        {
-                            try
+
+                            if (m_plugin.Handlers().Count == 0)
+                            {
+                                throw new InvalidPluginException(String.Format("Plugin {0} / {1} has no valid Handlers to register!", m_plugin.Name(), m_plugin.GUID().ToString()));
+                            }
+                            else
                             {
 
                                 m_plugin_info.AppendLine(String.Format("Found plugin {0}", m_plugin.Name()));
@@ -73,24 +78,33 @@ namespace sensu_client.net
 
                                 _log.Info(m_plugin_info.ToString());
 
-                                _log.Debug("Calling 'Initialize' of plugin {0}", m_plugin.Name());
+                                try
+                                {
 
-                                m_plugin.Initialize();
+                                    _log.Debug("Calling 'Initialize' of plugin {0}", m_plugin.Name());
 
-                                _log.Info("Plugin {0} successfully loaded!", m_plugin.Name());
+                                    m_plugin.Initialize();
 
-                            }
-                            catch (Exception ex)
-                            {
-                                _log.Error(ex, "Plugin failed to load!");
+                                    _log.Info("Plugin {0} successfully loaded!", m_plugin.Name());
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    _log.Error(ex, "Plugin initializion failed!");
+                                }
+
                             }
 
                         }
+                        else
+                        {
+                            throw new InvalidPluginException("Invalid Plugin found!");
+                        }
 
                     }
-                    else
+                    catch (InvalidPluginException ex)
                     {
-                        _log.Warn("Invalid Plugin found!");
+                        _log.Error(ex, ex.Message);
                     }
 
                 }
@@ -104,6 +118,11 @@ namespace sensu_client.net
             }
 
             #endregion
+
+        }
+
+        void Run()
+        {
 
             AppDomain.CurrentDomain.UnhandledException += CurrentDomainUnhandledException;
 

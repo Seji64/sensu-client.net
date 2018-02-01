@@ -58,6 +58,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CheckInProgressException.cs" />
+    <Compile Include="Exceptions\EmptyCheckNameException.cs" />
+    <Compile Include="Exceptions\InvalidPluginException.cs" />
+    <Compile Include="Exceptions\UnexpectedCheckException.cs" />
+    <Compile Include="Exceptions\UnmatchedCommandTokensException.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SensuClient.cs">

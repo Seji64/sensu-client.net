@@ -16,6 +16,9 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Client.Framing;
+using sensu_client.net.pluginterface;
+using sensu_client.net.Exceptions;
+using System.Threading.Tasks;
 
 namespace sensu_client.net
 {
@@ -29,11 +32,19 @@ namespace sensu_client.net
         private static bool _safemode;
         private static readonly List<string> ChecksInProgress = new List<string>();
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { Formatting = Formatting.None };
+        private static Program m_program_base;
+        private static object m_lock_checkinprogress;
 
         #region "Core"
 
         public static void Start()
         {
+
+            m_program_base = new Program();
+
+            m_lock_checkinprogress = new object();
+
+            m_program_base.LoadPlugins();
 
             LoadConfiguration();
 
@@ -263,91 +274,394 @@ namespace sensu_client.net
 
         public static void ExecuteCheckCommand(JObject check)
         {
+
+            string m_command = String.Empty;
+            string m_checkcommand = String.Empty;
+            string m_checkargs = String.Empty;
+
+            bool m_skip_publish = false;
+            List<string> m_unmatchedTokens = new List<string>();         
+            Stopwatch m_stopwatch = new Stopwatch();
+            TimeSpan m_check_timeout = TimeSpan.MinValue;
+
             Log.Debug("Attempting to execute check command {0}", JsonConvert.SerializeObject(check, SerializerSettings));
-            if (check["name"] == null)
+
+            try
             {
-                check["output"] = "Check didn't have a valid name";
-                check["status"] = 3;
-                check["handle"] = false;
-                PublishResult(check);
-                return;
-            }
-            if (!ChecksInProgress.Contains(check["name"].ToString()))
-            {
-                ChecksInProgress.Add(check["name"].ToString());
-                List<string> unmatchedTokens;
-                var command = SubstitueCommandTokens(check, out unmatchedTokens);
-                command = command.Trim();
-                if (unmatchedTokens == null || unmatchedTokens.Count == 0)
+                if (check["name"] == null)
                 {
-                    var checkCommand = "";
-                    var checkArgs = "";
-                    if (command.Contains(" "))
+                    throw new EmptyCheckNameException();
+                }
+
+                lock (m_lock_checkinprogress)
+                {
+                    if (ChecksInProgress.Contains(check["name"].ToString()))
                     {
-                        var parts = command.Split(" ".ToCharArray(), 2);
-                        checkCommand = parts[0];
-                        checkArgs = parts[1];
+                        throw new CheckInProgressException();
                     }
                     else
                     {
-                        checkCommand = command;
+                        ChecksInProgress.Add(check["name"].ToString());
+                    }
+                }
+
+                #region "split command and arguments and get check properties"
+
+                m_command = SubstitueCommandTokens(check, out m_unmatchedTokens);
+                m_command = m_command.Trim();
+
+                if (check["timeout"] != null)
+                {
+                    m_check_timeout = TimeSpan.Parse(check["timeout"].ToString());
+                }
+
+                if (m_unmatchedTokens == null || m_unmatchedTokens.Count == 0)
+                {
+
+                    if (m_command.Contains(" "))
+                    {
+                        m_checkcommand = m_command.Split(" ".ToCharArray(), 2)[0];
+                        m_checkargs = m_command.Split(" ".ToCharArray(), 2)[1];
+                    }
+                    else
+                    {
+                        m_checkcommand = m_command;
                     }
 
-                    var processstartinfo = new ProcessStartInfo(checkCommand)
+                }
+                else
+                {
+                    throw new UnmatchedCommandTokensException();
+                }
+
+                #endregion
+
+                #region "Plugin based check"
+
+                if (m_program_base.Plugins.Count() != 0 && m_checkcommand.StartsWith("!"))
+                {
+
+                    Task<ExecuteResult> m_check_task = null;
+                    CancellationTokenSource m_check_cancelationtokensrc = new CancellationTokenSource();
+                    CancellationToken m_check_cancelationtoken;
+
+                    Log.Debug("Checking inf any plugin has register a handler for command {0}", m_checkcommand);
+
+                    foreach (ISensuClientPlugin m_plugin in m_program_base.Plugins)
+                    {
+
+                        if (m_plugin.Handlers().Any(handler => handler.ToLower().Equals(m_checkcommand.ToLower())))
+                        {
+                            Log.Debug("Plugin {0} provides a handler for command {1}", m_plugin.Name(), m_checkcommand);
+
+                            try
+                            {
+
+                                ExecuteResult m_plugin_return = new ExecuteResult();
+
+                                Log.Debug("Passing Command to plugin {0}", m_plugin.Name());
+
+                                Arguments m_command_args = new Arguments(Arguments.SplitCommandLine(m_checkargs));
+
+                                m_stopwatch.Start();
+
+                                m_check_cancelationtoken = m_check_cancelationtokensrc.Token;
+
+                                m_check_task = Task<ExecuteResult>.Factory.StartNew(() => m_plugin.execute(m_checkcommand, m_command_args), m_check_cancelationtoken);
+
+                                if (!m_check_timeout.Equals(TimeSpan.MinValue))
+                                {
+                                    m_check_cancelationtokensrc.CancelAfter(m_check_timeout);
+                                }
+
+                                m_check_task.Wait(m_check_cancelationtoken);
+
+                                if (!m_check_task.IsCompleted | m_check_task.IsCanceled)
+                                { 
+                                    throw new Exception("Check did not completed within the configured timeout!");
+                                }
+                                
+                                m_plugin_return = m_check_task.Result;
+
+                                Log.Debug("Plugin Return: {0} / ExitCode: {1}", m_plugin_return.Output, m_plugin_return.ExitCode);
+
+                                check["output"] = string.Format("{0}", m_plugin_return.Output);
+                                check["status"] = m_plugin_return.ExitCode;
+
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex, ex.Message);
+                                throw new UnexpectedCheckException(ex.Message);
+                            }
+                            finally
+                            {
+                                m_stopwatch.Stop();
+                                check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
+
+                                if (m_check_task != null)
+                                {
+                                    m_check_task.Dispose();
+                                    m_check_cancelationtokensrc.Dispose();
+                                }
+                            }
+                        }
+
+                    }
+
+                }
+                #endregion
+
+                else
+                {
+                    #region "Normal 'legacy' Check"
+
+                    Process m_check_process = null;
+
+                    ProcessStartInfo m_process_start_info = new ProcessStartInfo(m_checkcommand)
                     {
                         WindowStyle = ProcessWindowStyle.Hidden,
                         UseShellExecute = false,
                         RedirectStandardError = true,
                         RedirectStandardInput = true,
                         RedirectStandardOutput = true,
-                        Arguments = checkArgs
+                        Arguments = m_checkargs
+
                     };
-                    var process = new Process { StartInfo = processstartinfo };
-                    var stopwatch = new Stopwatch();
+
                     try
                     {
-                        stopwatch.Start();
-                        process.Start();
-                        if (check["timeout"] != null)
+                        m_check_process = new Process { StartInfo = m_process_start_info };
+
+                        m_check_process.Start();
+                        m_stopwatch.Start();
+
+                        if (!m_check_timeout.Equals(TimeSpan.MinValue))
                         {
-                            if (!process.WaitForExit(1000 * int.Parse(check["timeout"].ToString())))
+                            if (!m_check_process.WaitForExit((int)m_check_timeout.TotalMilliseconds))
                             {
-                                process.Kill();
+                                m_check_process.Kill();
                             }
                         }
                         else
                         {
-                            process.WaitForExit();
+                            m_check_process.WaitForExit();
                         }
 
-                        check["output"] = string.Format("{0}{1}", process.StandardOutput.ReadToEnd(), process.StandardError.ReadToEnd());
-                        check["status"] = process.ExitCode;
+                        check["output"] = string.Format("{0}{1}", m_check_process.StandardOutput.ReadToEnd(), m_check_process.StandardError.ReadToEnd());
+                        check["status"] = m_check_process.ExitCode;
+
                     }
-                    catch (Win32Exception ex)
+                    catch (Exception ex)
                     {
                         check["output"] = string.Format("Unexpected error: {0}", ex.Message);
                         check["status"] = 2;
                     }
-                    stopwatch.Stop();
+                    finally
+                    {
+                        m_stopwatch.Stop();
+                        check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
+                        
+                        if(m_check_process !=null)
+                        {
+                            m_check_process.Dispose();
+                        }
+                    }
 
-                    check["duration"] = string.Format("{0:f3}", ((float)stopwatch.ElapsedMilliseconds) / 1000);
-                    PublishResult(check);
+                    #endregion
                 }
-                else
-                {
-                    check["output"] = string.Format("Unmatched command tokens: {0}",
-                                                    string.Join(",", unmatchedTokens.ToArray()));
-                    check["status"] = 3;
-                    check["handle"] = false;
-                    PublishResult(check);
-                    ChecksInProgress.Remove(check["name"].ToString());
-                }
+
             }
-            else
+
+            catch (CheckInProgressException)
             {
+                m_skip_publish = true;
                 Log.Warn("Previous check command execution in progress {0}", check["command"]);
             }
+
+            catch (EmptyCheckNameException)
+            {
+                check["output"] = "Check didn't have a valid name";
+                check["status"] = 3;
+                check["handle"] = false;
+            }
+
+            catch (UnexpectedCheckException ex)
+            {
+                check["output"] = string.Format("Unexpected error: {0}", ex.Message);
+                check["status"] = 2;
+            }
+
+            catch (UnmatchedCommandTokensException)
+            {
+                check["output"] = string.Format("Unmatched command tokens: {0}", string.Join(",", m_unmatchedTokens.ToArray()));
+                check["status"] = 3;
+                check["handle"] = false;
+            }
+
+            catch (Exception ex)
+            {
+                Log.Error(ex, ex.Message);
+            }
+
+            finally
+            {
+
+                lock (m_lock_checkinprogress)
+                {
+                    if (ChecksInProgress.Contains(check["name"].ToString()))
+                    { ChecksInProgress.Remove(check["name"].ToString()); }
+                }
+
+                if (!m_skip_publish)
+                {
+                    PublishResult(check);
+                }
+
+            }
+
         }
+
+        //public static void ExecuteCheckCommand(JObject check)
+        //{
+
+        //    Log.Debug("Attempting to execute check command {0}", JsonConvert.SerializeObject(check, SerializerSettings));
+        //    if (check["name"] == null)
+        //    {
+        //        check["output"] = "Check didn't have a valid name";
+        //        check["status"] = 3;
+        //        check["handle"] = false;
+        //        PublishResult(check);
+        //        return;
+        //    }
+        //    if (!ChecksInProgress.Contains(check["name"].ToString()))
+        //    {
+        //        ChecksInProgress.Add(check["name"].ToString());
+        //        List<string> unmatchedTokens;
+        //        var command = SubstitueCommandTokens(check, out unmatchedTokens);
+        //        var stopwatch = new Stopwatch();
+        //        command = command.Trim();
+        //        if (unmatchedTokens == null || unmatchedTokens.Count == 0)
+        //        {
+        //            var checkCommand = "";
+        //            var checkArgs = "";
+        //            if (command.Contains(" "))
+        //            {
+        //                var parts = command.Split(" ".ToCharArray(), 2);
+        //                checkCommand = parts[0];
+        //                checkArgs = parts[1];
+        //            }
+        //            else
+        //            {
+        //                checkCommand = command;
+        //            }
+
+
+
+
+        //            #region "Plugin Processing"
+
+        //            if (m_program_base.Plugins .Count() !=0 && checkCommand.StartsWith("!"))
+        //            {
+
+        //                Log.Debug("Command: {0}", checkCommand);
+        //                Log.Debug("Commands Args: {0}", checkArgs);
+
+        //                Log.Debug("Checking inf any plugin has register a handler for command {0}", checkCommand);
+
+        //                foreach (ISensuClientPlugin m_plugin in m_program_base.Plugins)
+        //                {
+
+        //                    if (m_plugin.Handlers().Any(handler => handler.ToLower().Equals(checkCommand.ToLower())))
+        //                    {
+        //                        Log.Debug("Plugin {0} provides a handler for command {1}", m_plugin.Name(), checkCommand);
+
+        //                        try
+        //                        {
+
+        //                            ExecuteResult m_plugin_return = new ExecuteResult();
+
+        //                            Log.Debug("Passing Command to plugin {0}", m_plugin.Name());
+
+        //                            Arguments m_command_args = new Arguments(Arguments.SplitCommandLine(checkArgs));
+
+
+
+        //                            m_plugin_return = m_plugin.execute(checkCommand, m_command_args);
+
+        //                            Log.Debug("Plugin Return: {0} / ExitCode: {1}", m_plugin_return.Output, m_plugin_return.ExitCode);
+
+        //                        }
+        //                        catch (Exception ex)
+        //                        {
+        //                            Log.Error(ex, ex.Message);
+        //                            check["output"] = string.Format("Unexpected error: {0}", ex.Message);
+        //                            check["status"] = 2;
+        //                        }
+        //                    }
+
+        //                }
+
+        //            }
+        //            #endregion
+        //            else
+        //            {
+        //                var processstartinfo = new ProcessStartInfo(checkCommand)
+        //                {
+        //                    WindowStyle = ProcessWindowStyle.Hidden,
+        //                    UseShellExecute = false,
+        //                    RedirectStandardError = true,
+        //                    RedirectStandardInput = true,
+        //                    RedirectStandardOutput = true,
+        //                    Arguments = checkArgs
+        //                };
+        //                var process = new Process { StartInfo = processstartinfo };             
+        //                try
+        //                {
+        //                    stopwatch.Start();
+        //                    process.Start();
+        //                    if (check["timeout"] != null)
+        //                    {
+        //                        if (!process.WaitForExit(1000 * int.Parse(check["timeout"].ToString())))
+        //                        {
+        //                            process.Kill();
+        //                        }
+        //                    }
+        //                    else
+        //                    {
+        //                        process.WaitForExit();
+        //                    }
+
+        //                    check["output"] = string.Format("{0}{1}", process.StandardOutput.ReadToEnd(), process.StandardError.ReadToEnd());
+        //                    check["status"] = process.ExitCode;
+        //                }
+        //                catch (Win32Exception ex)
+        //                {
+        //                    check["output"] = string.Format("Unexpected error: {0}", ex.Message);
+        //                    check["status"] = 2;
+        //                }
+        //                stopwatch.Stop();
+
+        //                check["duration"] = string.Format("{0:f3}", ((float)stopwatch.ElapsedMilliseconds) / 1000);
+        //                PublishResult(check);
+        //            }
+
+        //        }
+        //        else
+        //        {
+        //            check["output"] = string.Format("Unmatched command tokens: {0}",
+        //                                            string.Join(",", unmatchedTokens.ToArray()));
+        //            check["status"] = 3;
+        //            check["handle"] = false;
+        //            PublishResult(check);
+        //            ChecksInProgress.Remove(check["name"].ToString());
+        //        }
+        //    }
+        //    else
+        //    {
+        //        Log.Warn("Previous check command execution in progress {0}", check["command"]);
+        //    }
+        //}
 
         private static string SubstitueCommandTokens(JObject check, out List<string> unmatchedTokens)
         {
