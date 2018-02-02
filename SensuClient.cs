@@ -200,7 +200,7 @@ namespace sensu_client.net
 
             var m_my_queue = m_rabbitmq_channel.QueueDeclare("", false, false, true, null);
 
-            //m_rabbitmq_channel.BasicQos(0, 1, false);
+            m_rabbitmq_channel.BasicQos(0, 1, false);
 
             foreach (var subscription in _configsettings["client"]["subscriptions"])
             {
