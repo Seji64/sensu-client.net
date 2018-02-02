@@ -34,6 +34,7 @@ namespace sensu_client.net
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { ContractResolver = new OrderedContractResolver(), Formatting = Formatting.None };
         private static Program m_program_base;
         private static object m_lock_checkinprogress;
+        private static string m_version_string = String.Format("Sensu.NET {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
 
         #region "Core"
 
@@ -143,7 +144,7 @@ namespace sensu_client.net
 
                                 var payload = _configsettings["client"];
                                 payload["timestamp"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
-                                payload["version"] = ".NET 1.0.0";
+                                payload["version"] = m_version_string;
 
                                 Log.Debug("Publishing keepalive");
 

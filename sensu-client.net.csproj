@@ -37,6 +37,9 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Diagnostics.Tracing.EventSource, Version=1.1.28.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
@@ -71,6 +74,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Icon.ico" />
     <None Include=".vs\sensu-client.net\v15\Server\sqlite3\db.lock" />
     <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide" />
     <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide-shm" />
