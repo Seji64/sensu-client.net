@@ -28,7 +28,7 @@ namespace sensu_client.net
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
         private const int KeepAliveTimeout = 20000;
         private static readonly CancellationTokenSource m_cancelationtokensrc = new CancellationTokenSource();
-        private static JObject _configsettings;
+        private static JObject m_configsettings;
         private static bool _safemode;
         private static readonly List<string> ChecksInProgress = new List<string>();
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { ContractResolver = new OrderedContractResolver(), Formatting = Formatting.None };
@@ -113,12 +113,12 @@ namespace sensu_client.net
             //Read Config settings
             try
             {
-                _configsettings = JObject.Parse(File.ReadAllText(configfile));
+                m_configsettings = JObject.Parse(File.ReadAllText(configfile));
             }
             catch (FileNotFoundException ex)
             {
                 Log.Error(ex, string.Format("Config file not found: {0}", configfile));
-                _configsettings = new JObject();
+                m_configsettings = new JObject();
             }
             //Grab configs from dir.
             if (Directory.Exists(configdir))
@@ -129,12 +129,12 @@ namespace sensu_client.net
                 {
                     foreach (var thingemebob in settings)
                     {
-                        _configsettings.Add(thingemebob.Key, thingemebob.Value);
+                        m_configsettings.Add(thingemebob.Key, thingemebob.Value);
                     }
                 }
                 try
                 {
-                    bool.TryParse(_configsettings["client"]["safemode"].ToString(), out _safemode);
+                    bool.TryParse(m_configsettings["client"]["safemode"].ToString(), out _safemode);
                 }
                 catch (NullReferenceException)
                 {
@@ -144,29 +144,6 @@ namespace sensu_client.net
             {
                 Log.Warn("Config dir not found");
             }
-        }
-
-        private static string CreateQueueName()
-        {
-            return String.Format("{0}-{1}-{2}", GetFQDN(), System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(), CreateTimeStamp());
-        }
-
-        private static string GetFQDN()
-        {
-            string domainName = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().DomainName;
-            string hostName = System.Net.Dns.GetHostName();
-
-            if (!hostName.EndsWith(domainName))  // if hostname does not already include domain name
-            {
-                hostName += "." + domainName;   // add the domain name part
-            }
-
-            return hostName;                    // return the fully qualified name
-        }
-
-        private static long CreateTimeStamp()
-        {
-            return Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
         }
 
         private static bool CreateRabbitMQChannel()
@@ -261,9 +238,9 @@ namespace sensu_client.net
             try
             {
 
-                var m_my_queue = RabbitMQChannel.QueueDeclare(CreateQueueName(), false, false, true, null);
+                var m_my_queue = RabbitMQChannel.QueueDeclare(SensuClientHelper.CreateQueueName(), false, false, true, null);
 
-                foreach (var subscription in _configsettings["client"]["subscriptions"])
+                foreach (var subscription in m_configsettings["client"]["subscriptions"])
                 {
 
                     Log.Info("Binding queue {0} to exchange {1}", m_my_queue.QueueName, subscription);
@@ -286,49 +263,21 @@ namespace sensu_client.net
 
         }
 
-        public static void ProcessCheck(JObject check)
-        {
-
-            JToken command;
-
-            Log.Debug("Processing check {0}", JsonConvert.SerializeObject(check, SerializerSettings));
-
-            if (check.TryGetValue("command", out command))
-            {
-                if (_configsettings["check"] != null && _configsettings["check"].Contains(check["name"]))
-                {
-                    foreach (var thingie in _configsettings["checks"][check["name"]])
-                    {
-                        check.Add(thingie);
-                    }
-                    ExecuteCheckCommand(check);
-                }
-                else if (_safemode)
-                {
-                    check["output"] = "Check is not locally defined (safemode)";
-                    check["status"] = 3;
-                    check["handle"] = false;
-                    PublishResult(check);
-                }
-                else
-                {
-                    ExecuteCheckCommand(check);
-                }
-            }
-            else
-            {
-                Log.Warn("Unknown check exception: {0}", check);
-            }
-        }
-
         private static void PublishKeepAlive()
         {
             try
             {
 
-                var payload = _configsettings["client"];
-                payload["timestamp"] = CreateTimeStamp();
-                payload["version"] = m_version_string;
+                List<string> m_redactlist = null;
+                var keepAlive = m_configsettings["client"];
+
+                keepAlive["timestamp"] = SensuClientHelper.CreateTimeStamp();
+                keepAlive["version"] = m_version_string;
+                keepAlive["plugins"] = "";
+
+                m_redactlist = SensuClientHelper.GetRedactlist((JObject)keepAlive);
+
+                var payload = SensuClientHelper.RedactSensitiveInformaton(keepAlive, m_redactlist);
 
                 Log.Debug("Publishing keepalive");
 
@@ -356,12 +305,17 @@ namespace sensu_client.net
         {
             var payload = new JObject();
             payload["check"] = check;
-            payload["client"] = _configsettings["client"]["name"];
+            payload["client"] = m_configsettings["client"]["name"];
 
             try
             {
 
                 Log.Info("Publishing Check Result {0}", JsonConvert.SerializeObject(payload, SerializerSettings));
+
+                if (!SensuClientHelper.ValidateCheckResult(payload))
+                {
+                    throw new Exception("Invalid Check Result!");
+                }
 
                     var properties = new BasicProperties
                     {
@@ -378,7 +332,7 @@ namespace sensu_client.net
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Publishing Check Result failed!");
+                Log.Error(ex, "Publishing Check Result failed: {0}",ex.Message);
             }
             finally
             {
@@ -389,6 +343,41 @@ namespace sensu_client.net
                 }
             }
 
+        }
+
+        public static void ProcessCheck(JObject check)
+        {
+
+            JToken command;
+
+            Log.Debug("Processing check {0}", JsonConvert.SerializeObject(check, SerializerSettings));
+
+            if (check.TryGetValue("command", out command))
+            {
+                if (m_configsettings["check"] != null && m_configsettings["check"].Contains(check["name"]))
+                {
+                    foreach (var thingie in m_configsettings["checks"][check["name"]])
+                    {
+                        check.Add(thingie);
+                    }
+                    ExecuteCheckCommand(check);
+                }
+                else if (_safemode)
+                {
+                    check["output"] = "Check is not locally defined (safemode)";
+                    check["status"] = 3;
+                    check["handle"] = false;
+                    PublishResult(check);
+                }
+                else
+                {
+                    ExecuteCheckCommand(check);
+                }
+            }
+            else
+            {
+                Log.Warn("Unknown check exception: {0}", check);
+            }
         }
 
         public static void ExecuteCheckCommand(JObject check)
@@ -426,7 +415,7 @@ namespace sensu_client.net
 
                 #region "split command and arguments and get check properties"
 
-                m_command = SubstitueCommandTokens(check, out m_unmatchedTokens);
+                m_command = SensuClientHelper.SubstitueCommandTokens(check, m_configsettings, out m_unmatchedTokens);
                 m_command = m_command.Trim();
 
                 if (check["timeout"] != null)
@@ -533,7 +522,7 @@ namespace sensu_client.net
                             {
                                 m_stopwatch.Stop();
 
-                                check["executed"] = CreateTimeStamp();
+                                check["executed"] = SensuClientHelper.CreateTimeStamp();
                                 check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
 
                                 if (m_check_task != null)
@@ -598,7 +587,7 @@ namespace sensu_client.net
                     {
                         m_stopwatch.Stop();
                        
-                        check["executed"] = CreateTimeStamp();
+                        check["executed"] = SensuClientHelper.CreateTimeStamp();
                         check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
 
                         if (m_check_process !=null)
@@ -665,47 +654,6 @@ namespace sensu_client.net
 
         }
 
-        private static string SubstitueCommandTokens(JObject check, out List<string> unmatchedTokens)
-        {
-            var temptokens = new List<string>();
-            var command = check["command"].ToString();
-            var regex = new Regex(":::(.*?):::", RegexOptions.Compiled);
-            command = regex.Replace(command, match =>
-            {
-                var matched = "";
-                foreach (var p in match.Value.Split('.'))
-                {
-                    if (_configsettings["client"][p] != null)
-                    {
-                        matched += _configsettings["client"][p];
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(matched))
-                {
-
-                    if (match.Value.Contains("|")) //something like  this: :::cpu.usage|80:::
-                    {
-
-                        matched += match.Value.Remove(0, match.Value.IndexOf("|")+1).ToString().Replace(":::","").Trim();
-                    }
-                    else
-                    {
-                        temptokens.Add(match.Value);
-                    }
-
-                }
-                return matched;
-            });
-            unmatchedTokens = temptokens;
-            return command;
-        }
-
-
         public static void Halt()
         {
             Log.Info("Told to stop. Obeying.");
@@ -742,11 +690,11 @@ namespace sensu_client.net
 
                 var connectionFactory = new ConnectionFactory
                 {
-                    HostName = _configsettings["rabbitmq"]["host"].ToString(),
-                    Port = int.Parse(_configsettings["rabbitmq"]["port"].ToString()),
-                    UserName = _configsettings["rabbitmq"]["user"].ToString(),
-                    Password = _configsettings["rabbitmq"]["password"].ToString(),
-                    VirtualHost = _configsettings["rabbitmq"]["vhost"].ToString(),
+                    HostName = m_configsettings["rabbitmq"]["host"].ToString(),
+                    Port = int.Parse(m_configsettings["rabbitmq"]["port"].ToString()),
+                    UserName = m_configsettings["rabbitmq"]["user"].ToString(),
+                    Password = m_configsettings["rabbitmq"]["password"].ToString(),
+                    VirtualHost = m_configsettings["rabbitmq"]["vhost"].ToString(),
                     TopologyRecoveryEnabled = true,
                     AutomaticRecoveryEnabled = true,
                     NetworkRecoveryInterval = TimeSpan.FromSeconds(30),
@@ -795,18 +743,24 @@ namespace sensu_client.net
 
         private static void SubscriptionReceived(object sender, BasicDeliverEventArgs e)
         {
-            var m_payload = String.Empty;
+            string m_payload = String.Empty;
+            JObject m_check;
 
             try
             {
 
                 Log.Debug("Received check request");
 
+               
                 if (e.Body != null)
                 {
 
                     m_payload = Encoding.UTF8.GetString(e.Body);
-                    var m_check = JObject.Parse(m_payload);
+
+                   if (!SensuClientHelper.TryParseData(m_payload, out m_check))
+                    {
+                        throw new JsonReaderException();
+                    }
 
                     Log.Debug("Payload Data: {0}", JsonConvert.SerializeObject(m_check, SerializerSettings));
 

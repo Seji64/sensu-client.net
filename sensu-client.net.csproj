@@ -72,6 +72,7 @@
     <Compile Include="SensuClient.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="SensuClientHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Icon.ico" />
