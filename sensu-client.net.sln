@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27130.2024
+VisualStudioVersion = 15.0.27130.2027
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{B991739C-7393-43B6-9D26-4360B6A0412F}"
 	ProjectSection(SolutionItems) = preProject
@@ -19,6 +19,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PluginInterfaces", "PluginInterfaces\PluginInterfaces.csproj", "{0474B9FE-1B80-4F9B-902E-82D9DE6C2360}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-cpu", "..\..\Plugins\sensu-client.net\sensu-client.net-cpu\sensu-client.net-cpu.csproj", "{D55CF05D-0C08-4077-AB4D-2D25DCB84366}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-memory", "..\..\Plugins\sensu-client.net\sensu-client.net-memory\sensu-client.net-memory.csproj", "{CF8E858C-97FC-4E26-A42E-2C41ED93648B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-disk", "..\..\Plugins\sensu-client.net\sensu-client.net-disk\sensu-client.net-disk.csproj", "{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -85,6 +89,30 @@ Global
 		{D55CF05D-0C08-4077-AB4D-2D25DCB84366}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{D55CF05D-0C08-4077-AB4D-2D25DCB84366}.Release|x86.ActiveCfg = Release|Any CPU
 		{D55CF05D-0C08-4077-AB4D-2D25DCB84366}.Release|x86.Build.0 = Release|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Debug|x86.Build.0 = Debug|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Release|x86.ActiveCfg = Release|Any CPU
+		{CF8E858C-97FC-4E26-A42E-2C41ED93648B}.Release|x86.Build.0 = Release|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Debug|x86.Build.0 = Debug|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|Any CPU.Build.0 = Release|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|x86.ActiveCfg = Release|Any CPU
+		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

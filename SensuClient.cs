@@ -24,7 +24,7 @@ namespace sensu_client.net
 {
     public class SensuClient : ServiceBase
     {
-        private static IConnection m_rabbitmq_connection;
+        
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
         private const int KeepAliveTimeout = 20000;
         private static readonly CancellationTokenSource m_cancelationtokensrc = new CancellationTokenSource();
@@ -34,7 +34,30 @@ namespace sensu_client.net
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings { ContractResolver = new OrderedContractResolver(), Formatting = Formatting.None };
         private static Program m_program_base;
         private static object m_lock_checkinprogress;
+        private static object m_lock_pulish;
         private static string m_version_string = String.Format("Sensu.NET {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
+
+        #region "Properties"
+
+        private static IModel m_rabbitmq_channel = null;
+        public static  IModel RabbitMQChannel
+        {
+            get
+            {
+                return m_rabbitmq_channel;
+            }
+        }
+
+        private static IConnection m_rabbitmq_connection = null;
+        public static IConnection RabbitMQConnection
+        {
+            get
+            {
+                return m_rabbitmq_connection;
+            }
+        }
+
+        #endregion
 
         #region "Core"
 
@@ -44,6 +67,7 @@ namespace sensu_client.net
             m_program_base = new Program();
 
             m_lock_checkinprogress = new object();
+            m_lock_pulish = new object();
 
             m_program_base.LoadPlugins();
 
@@ -51,15 +75,22 @@ namespace sensu_client.net
 
             Connect2RabbitMQ();
 
-            if (m_rabbitmq_connection != null && m_rabbitmq_connection.IsOpen)
+            if (RabbitMQConnection != null && RabbitMQConnection.IsOpen)
             {
+                //CreateChannel
+               if (CreateRabbitMQChannel())
+                {
+                    //Start Keepalive thread
+                    System.Threading.Tasks.Task.Run(() => KeepAliveScheduler(m_cancelationtokensrc.Token), m_cancelationtokensrc.Token);
 
-                //Start Keepalive thread
-                System.Threading.Tasks.Task.Run(() => KeepAliveScheduler(m_cancelationtokensrc.Token), m_cancelationtokensrc.Token);
-
-                //Start subscriptions thread.
-                System.Threading.Tasks.Task.Run(() => Subscribe(m_cancelationtokensrc.Token), m_cancelationtokensrc.Token);
-
+                    //Start subscriptions thread.
+                    System.Threading.Tasks.Task.Run(() => Subscribe(m_cancelationtokensrc.Token), m_cancelationtokensrc.Token);
+                }
+                else
+                {
+                    Log.Error("Failed to open RabbitMQ Channel - stopping");
+                    Halt();
+                }
             }
             else
             {
@@ -115,12 +146,65 @@ namespace sensu_client.net
             }
         }
 
+        private static string CreateQueueName()
+        {
+            return String.Format("{0}-{1}-{2}", GetFQDN(), System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(), CreateTimeStamp());
+        }
+
+        private static string GetFQDN()
+        {
+            string domainName = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().DomainName;
+            string hostName = System.Net.Dns.GetHostName();
+
+            if (!hostName.EndsWith(domainName))  // if hostname does not already include domain name
+            {
+                hostName += "." + domainName;   // add the domain name part
+            }
+
+            return hostName;                    // return the fully qualified name
+        }
+
+        private static long CreateTimeStamp()
+        {
+            return Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
+        }
+
+        private static bool CreateRabbitMQChannel()
+        {
+
+            bool m_sucess = true;
+
+            Log.Info("Creating/Opening new RabbitMQ Channel...");
+
+            try
+            {
+
+                m_rabbitmq_channel = RabbitMQConnection.CreateModel();
+
+                if (!m_rabbitmq_channel.IsOpen)
+                {
+                    throw new Exception("Failed to open Channel");
+                }
+
+                m_rabbitmq_channel.BasicQos(0, 1, false);
+
+                Log.Info("Done - RabbitMQ Channel successfully opened");
+
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, ex.Message);
+                m_sucess = false;
+            }
+
+            return m_sucess;
+
+        }
+
         private static void KeepAliveScheduler(CancellationToken m_token)
         {
 
-            IModel m_rabbitmq_channel = null;
-
-            Log.Debug("Starting keepalive scheduler thread");
+            Log.Info("Starting KeepAlive Scheduler");
 
             try
             {
@@ -128,61 +212,35 @@ namespace sensu_client.net
                 while (!m_token.IsCancellationRequested)
                 {
 
-                    if (m_rabbitmq_connection != null && m_rabbitmq_connection.IsOpen)
-                    {
-                        m_rabbitmq_channel = m_rabbitmq_connection.CreateModel();
-
-                        if (m_rabbitmq_channel == null || !m_rabbitmq_channel.IsOpen)
+                    if (RabbitMQConnection != null && RabbitMQConnection.IsOpen)
+                    {                
+                        if (!RabbitMQChannel.IsOpen || RabbitMQChannel.IsClosed)
                         {
-                            Log.Error("RabbitMQ Channel is NOT Ready....waiting for reconnect");
+                            Log.Error("RabbitMQ Channel already created but is NOT Ready....waiting for reconnect");
                         }
                         else
                         {
-
-                            try
-                            {
-
-                                var payload = _configsettings["client"];
-                                payload["timestamp"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
-                                payload["version"] = m_version_string;
-
-                                Log.Debug("Publishing keepalive");
-
-                                var properties = new BasicProperties
-                                {
-                                    ContentType = "application/octet-stream",
-                                    Priority = 0,
-                                    DeliveryMode = 1
-                                };
-
-                                m_rabbitmq_channel.BasicPublish("", "keepalives", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
-
-                            }
-                            catch (Exception)
-                            {
-                                Log.Error("Failed to publish keepalive!");
-                            }
-                            finally
-                            {
-                                System.Threading.Tasks.Task.Delay(KeepAliveTimeout, m_token).Wait();
-                            }
-
+                            PublishKeepAlive();                           
                         }
-
                     }
                     else
                     {
                         Log.Error("RabbitMQ Connection is NOT Ready....waiting for reconnect");
                     }
 
+                    System.Threading.Tasks.Task.Delay(KeepAliveTimeout, m_token).Wait();
+
                 }
 
             }
             catch (OperationCanceledException)
-            {
-                m_rabbitmq_channel.Close(200, "Bye");
-                Log.Info("Keepalive stopped");
+            {                
+                Log.Info("KeepAlive Scheduler stopped");
 
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, ex.Message);
             }
             finally
             {
@@ -190,31 +248,40 @@ namespace sensu_client.net
             }
         }
 
-        private static void Subscribe(CancellationToken m_token)
+        private static void Subscribe(CancellationToken m_tokenl)
         {
 
-            IModel m_rabbitmq_channel = null;
             EventingBasicConsumer m_rabbit_consumer = null;
 
-            m_rabbitmq_channel = m_rabbitmq_connection.CreateModel();
+            if (!RabbitMQChannel.IsOpen)
+            {
+                throw new Exception("RabbitMQ Channel not open!");
+            }
 
-            var m_my_queue = m_rabbitmq_channel.QueueDeclare("", false, false, true, null);
-
-            m_rabbitmq_channel.BasicQos(0, 1, false);
-
-            foreach (var subscription in _configsettings["client"]["subscriptions"])
+            try
             {
 
-                Log.Debug("Binding queue {0} to exchange {1}", m_my_queue.QueueName, subscription);
-                m_rabbitmq_channel.QueueBind(m_my_queue.QueueName, subscription.ToString(), "");
-                m_rabbit_consumer = new EventingBasicConsumer(m_rabbitmq_channel);
+                var m_my_queue = RabbitMQChannel.QueueDeclare(CreateQueueName(), false, false, true, null);
 
-                m_rabbit_consumer.Received += SubscriptionReceived;
-                m_rabbit_consumer.Shutdown += SubscriptionShutdown;
-                m_rabbit_consumer.ConsumerCancelled += SubscriptionCancelled;
+                foreach (var subscription in _configsettings["client"]["subscriptions"])
+                {
 
-                m_rabbitmq_channel.BasicConsume(m_my_queue.QueueName, true, m_rabbit_consumer);
+                    Log.Info("Binding queue {0} to exchange {1}", m_my_queue.QueueName, subscription);
+                    RabbitMQChannel.QueueBind(m_my_queue.QueueName, subscription.ToString(), "");
+                    m_rabbit_consumer = new EventingBasicConsumer(RabbitMQChannel);
 
+                    m_rabbit_consumer.Received += SubscriptionReceived;
+                    m_rabbit_consumer.Shutdown += SubscriptionShutdown;
+                    m_rabbit_consumer.ConsumerCancelled += SubscriptionCancelled;
+
+                    RabbitMQChannel.BasicConsume(m_my_queue.QueueName, true, m_rabbit_consumer);
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, ex.Message);
             }
 
         }
@@ -254,6 +321,37 @@ namespace sensu_client.net
             }
         }
 
+        private static void PublishKeepAlive()
+        {
+            try
+            {
+
+                var payload = _configsettings["client"];
+                payload["timestamp"] = CreateTimeStamp();
+                payload["version"] = m_version_string;
+
+                Log.Debug("Publishing keepalive");
+
+                var properties = new BasicProperties
+                {
+                    ContentType = "application/octet-stream",
+                    Priority = 0,
+                    DeliveryMode = 1
+                };
+
+                lock (m_lock_pulish)
+                {
+                    RabbitMQChannel.BasicPublish("", "keepalives", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to publish KeepAlive!");
+            }
+
+        }
+
         private static void PublishResult(JObject check)
         {
             var payload = new JObject();
@@ -264,17 +362,19 @@ namespace sensu_client.net
             {
 
                 Log.Info("Publishing Check Result {0}", JsonConvert.SerializeObject(payload, SerializerSettings));
-                using (IModel m_rabbitmq_channel = m_rabbitmq_connection.CreateModel())
-                {
+
                     var properties = new BasicProperties
                     {
                         ContentType = "application/octet-stream",
                         Priority = 0,
                         DeliveryMode = 1
                     };
-                    m_rabbitmq_channel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
-                }
 
+                    lock (m_lock_pulish)
+                    {
+                        RabbitMQChannel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
+                    }
+                      
             }
             catch (Exception ex)
             {
@@ -433,7 +533,7 @@ namespace sensu_client.net
                             {
                                 m_stopwatch.Stop();
 
-                                check["executed"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
+                                check["executed"] = CreateTimeStamp();
                                 check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
 
                                 if (m_check_task != null)
@@ -498,7 +598,7 @@ namespace sensu_client.net
                     {
                         m_stopwatch.Stop();
                        
-                        check["executed"] = Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
+                        check["executed"] = CreateTimeStamp();
                         check["duration"] = string.Format("{0:f3}", ((float)m_stopwatch.ElapsedMilliseconds) / 1000);
 
                         if (m_check_process !=null)
@@ -621,9 +721,15 @@ namespace sensu_client.net
         protected override void OnStop()
         {
             Log.Info("Service OnStop called: Shutting Down");
-            m_rabbitmq_connection.AutoClose = true;
             m_cancelationtokensrc.Cancel();
-            m_rabbitmq_connection.Close();
+
+            lock (m_lock_pulish)
+            {
+                RabbitMQChannel.Close(200, "Bye");
+            }
+
+            RabbitMQConnection.Close();
+
             base.OnStop();
         }
 
@@ -651,6 +757,8 @@ namespace sensu_client.net
                 m_rabbitmq_connection.ConnectionShutdown += RabbitMQConnection_Shutdown;
                 m_rabbitmq_connection.RecoverySucceeded += RabbitMQConnecion_ReconnectSuccess;
                 m_rabbitmq_connection.ConnectionRecoveryError += RabbitMQConnect_ReconnectFailed;
+                m_rabbitmq_connection.ConnectionBlocked += RabbmitMQConnection_Blocked;
+                m_rabbitmq_connection.ConnectionUnblocked += RabbmitMQConnection_UnBlocked;
 
 
                 Log.Debug("Connection successfully created!");
@@ -668,6 +776,16 @@ namespace sensu_client.net
             {
                 Log.Error(ex, ex.Message);
             }
+        }
+
+        private static void RabbmitMQConnection_UnBlocked(object sender, EventArgs e)
+        {
+            Log.Warn("RabbitMQ Connection Unblocked!");
+        }
+
+        private static void RabbmitMQConnection_Blocked(object sender, ConnectionBlockedEventArgs e)
+        {
+            Log.Warn("RabbitMQ Connection blocked!");
         }
 
 
@@ -720,7 +838,7 @@ namespace sensu_client.net
 
         private static void SubscriptionCancelled(object sender, ConsumerEventArgs e)
         {
-            Log.Error("SubscriptionCancelled: {0}", e.ToString());
+            Log.Error("SubscriptionCancelled: {0}", e.ConsumerTag.ToString());
         }
 
         private static void RabbitMQConnect_ReconnectFailed(object sender, ConnectionRecoveryErrorEventArgs e)
