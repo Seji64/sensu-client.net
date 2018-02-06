@@ -312,23 +312,19 @@ namespace sensu_client.net
 
                 Log.Info("Publishing Check Result {0}", JsonConvert.SerializeObject(payload, SerializerSettings));
 
-                if (!SensuClientHelper.ValidateCheckResult(payload))
+                var properties = new BasicProperties
                 {
-                    throw new Exception("Invalid Check Result!");
+                    ContentType = "application/octet-stream",
+                    Priority = 0,
+                    DeliveryMode = 1
+                };
+
+                lock (m_lock_pulish)
+                {
+                    RabbitMQChannel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
                 }
 
-                    var properties = new BasicProperties
-                    {
-                        ContentType = "application/octet-stream",
-                        Priority = 0,
-                        DeliveryMode = 1
-                    };
 
-                    lock (m_lock_pulish)
-                    {
-                        RabbitMQChannel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
-                    }
-                      
             }
             catch (Exception ex)
             {

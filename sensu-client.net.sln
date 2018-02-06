@@ -14,8 +14,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net", "sensu-c
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "Setup", "Setup\Setup.wixproj", "{D5FFED85-866A-476E-AA2B-32FCDC0D2567}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-perfdata", "..\..\Plugins\sensu-client.net\sensu-client.net-perfdata\sensu-client.net-perfdata.csproj", "{7C459916-D539-4F1E-9300-BCAB67ACA43C}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PluginInterfaces", "PluginInterfaces\PluginInterfaces.csproj", "{0474B9FE-1B80-4F9B-902E-82D9DE6C2360}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-cpu", "..\..\Plugins\sensu-client.net\sensu-client.net-cpu\sensu-client.net-cpu.csproj", "{D55CF05D-0C08-4077-AB4D-2D25DCB84366}"
@@ -53,18 +51,6 @@ Global
 		{D5FFED85-866A-476E-AA2B-32FCDC0D2567}.Release|Mixed Platforms.Build.0 = Release|x86
 		{D5FFED85-866A-476E-AA2B-32FCDC0D2567}.Release|x86.ActiveCfg = Release|x86
 		{D5FFED85-866A-476E-AA2B-32FCDC0D2567}.Release|x86.Build.0 = Release|x86
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Debug|x86.Build.0 = Debug|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Release|x86.ActiveCfg = Release|Any CPU
-		{7C459916-D539-4F1E-9300-BCAB67ACA43C}.Release|x86.Build.0 = Release|Any CPU
 		{0474B9FE-1B80-4F9B-902E-82D9DE6C2360}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0474B9FE-1B80-4F9B-902E-82D9DE6C2360}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0474B9FE-1B80-4F9B-902E-82D9DE6C2360}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU

@@ -75,7 +75,9 @@
     <Compile Include="SensuClientHelper.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Icon.ico" />
+    <Content Include="Icon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include=".vs\sensu-client.net\v15\Server\sqlite3\db.lock" />
     <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide" />
     <None Include=".vs\sensu-client.net\v15\Server\sqlite3\storage.ide-shm" />
@@ -101,6 +103,7 @@
       <Name>PluginInterfaces</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

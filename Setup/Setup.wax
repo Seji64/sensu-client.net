@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-16"?>
+<Configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <DeployedProjects>
+    <string>sensu-client.net.csproj</string>
+    <string>PluginInterfaces\PluginInterfaces.csproj</string>
+  </DeployedProjects>
+  <DirectoryMappings>
+    <Item Key="" Value="INSTALLFOLDER" />
+    <Item Key="bin\Release\plugins" Value="plugindir" />
+  </DirectoryMappings>
+  <FileMappings>
+    <Item Key="sensu-client.net.exe.config" Value="sensu_client_config" />
+  </FileMappings>
+  <DeploySymbols>false</DeploySymbols>
+  <DeployLocalizations>true</DeployLocalizations>
+  <DeployExternalLocalizations>false</DeployExternalLocalizations>
+</Configuration>
