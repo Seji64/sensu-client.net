@@ -238,10 +238,16 @@ namespace sensu_client.net
             try
             {
 
+               
+
                 var m_my_queue = RabbitMQChannel.QueueDeclare(SensuClientHelper.CreateQueueName(), false, false, true, null);
 
                 foreach (var subscription in m_configsettings["client"]["subscriptions"])
                 {
+
+                    Log.Debug("Declaring Exchange...");
+                    RabbitMQChannel.ExchangeDeclare(subscription.ToString(), "fanout", false, false, null);
+                    Log.Debug("Done");
 
                     Log.Info("Binding queue {0} to exchange {1}", m_my_queue.QueueName, subscription);
                     RabbitMQChannel.QueueBind(m_my_queue.QueueName, subscription.ToString(), "");
@@ -540,14 +546,14 @@ namespace sensu_client.net
 
                     Process m_check_process = null;
 
-                    ProcessStartInfo m_process_start_info = new ProcessStartInfo(m_checkcommand)
+                    ProcessStartInfo m_process_start_info = new ProcessStartInfo(Environment.ExpandEnvironmentVariables(m_checkcommand))
                     {
                         WindowStyle = ProcessWindowStyle.Hidden,
                         UseShellExecute = false,
                         RedirectStandardError = true,
                         RedirectStandardInput = true,
                         RedirectStandardOutput = true,
-                        Arguments = m_checkargs
+                        Arguments = Environment.ExpandEnvironmentVariables(m_checkargs)
 
                     };
 
