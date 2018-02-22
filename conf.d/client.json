@@ -1,8 +1,19 @@
 ﻿{
   "client": {
-    "name": "sensu-client default",
-    "address": "",
+    "name": "hostname",
+    "address": "ip",
     "subscriptions": [
+      "default"
+	],
+    "socket": {
+      "bind": "127.0.0.1",
+      "port": 3030
+    },
+    "safe_mode": false,
+    "keepalive": {
+    },
+    "redact": [
+      "password"
     ]
   }
 }

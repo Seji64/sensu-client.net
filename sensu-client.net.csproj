@@ -61,7 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="OrderedContractResolver.cs" />
+    <Compile Include="Classes\OrderedContractResolver.cs" />
     <Compile Include="Exceptions\CheckInProgressException.cs" />
     <Compile Include="Exceptions\EmptyCheckNameException.cs" />
     <Compile Include="Exceptions\InvalidPluginException.cs" />
@@ -72,7 +72,7 @@
     <Compile Include="SensuClient.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="SensuClientHelper.cs" />
+    <Compile Include="Helper\SensuClientHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Icon.ico">
