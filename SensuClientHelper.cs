@@ -13,6 +13,8 @@ namespace sensu_client.net
     {
 
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+        public const string ErroTextDefaultValueMissing = "Default missing:";
+        public const string ErroTextDefaultDividerMissing = "Default divider missing";
 
         public static bool ValidateCheckResult(JObject check)
         {
@@ -68,45 +70,119 @@ namespace sensu_client.net
             return Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
         }
 
-        public static string SubstitueCommandTokens(JObject check,JObject m_configsettings, out List<string> unmatchedTokens)
+        public static string SubstitueCommandTokens(JObject check, out string errors, JObject client)
         {
-            var temptokens = new List<string>();
+            errors = "";
+            var tempErrors = new List<string>();
             var command = check["command"].ToString();
-            var regex = new Regex(":::(.*?):::", RegexOptions.Compiled);
-            command = regex.Replace(command, match =>
+
+            if (!command.Contains(":::"))
+                return command;
+
+            var commandRegexp = new Regex(":::(.*?):::", RegexOptions.Compiled);
+
+            command = commandRegexp.Replace(command, match => MatchCommandArguments(client, match, tempErrors));
+
+            if (tempErrors.Count > 0)
             {
-                var matched = "";
-                foreach (var p in match.Value.Split('.'))
-                {
-                    if (m_configsettings["client"][p] != null)
-                    {
-                        matched += m_configsettings["client"][p];
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(matched))
-                {
-
-                    if (match.Value.Contains("|")) //something like  this: :::cpu.usage|80:::
-                    {
-
-                        matched += match.Value.Remove(0, match.Value.IndexOf("|") + 1).ToString().Replace(":::", "").Trim();
-                    }
-                    else
-                    {
-                        temptokens.Add(match.Value);
-                    }
-
-                }
-                return matched;
-            });
-            unmatchedTokens = temptokens;
+                errors = ErroTextDefaultValueMissing;
+                errors += string.Join(" , ", tempErrors.ToArray());
+            }
             return command;
         }
+
+        private static string MatchCommandArguments(JObject client, Match match, List<string> tempErrors)
+        {
+            var argumentValue = "";
+            string[] commandArgument;
+
+            if (match.Value.Contains("|"))
+            {
+                commandArgument = match.Value.Replace(":::", "").Split(('|'));
+            }
+            else
+            {
+                commandArgument = new[] { match.Value.Replace(":::", "").ToString(), ""};
+            }
+
+            var matchedOrDefault = FindClientAttribute(client, commandArgument[0].Split('.').ToList(), commandArgument[1]);
+
+            if (CommandArgumentIsNotNull(commandArgument)) {
+                argumentValue += matchedOrDefault;
+            }
+
+            if (String.IsNullOrWhiteSpace(argumentValue))
+            {
+                tempErrors.Add(commandArgument[0]);
+            }
+
+            return argumentValue;
+        }
+
+        private static bool CommandArgumentIsNotNull(string[] p)
+        {
+            return p[0] != null;
+        }
+
+        private static string FindClientAttribute(JToken tree, ICollection<string> path, string defaultValue)
+        {
+            var attribute = tree[path.First()];
+            path.Remove(path.First());
+            if (attribute == null) return defaultValue;
+            if (attribute.Children().Any())
+            {
+                return FindClientAttribute(attribute, path, defaultValue);
+            }
+
+            return attribute.Value<string>() ?? defaultValue;
+
+        }
+
+        //public static string SubstitueCommandTokens(JObject check,JObject m_configsettings, out List<string> unmatchedTokens)
+        //{
+        //    var temptokens = new List<string>();
+        //    var command = check["command"].ToString();
+        //    var regex = new Regex(":::(.*?):::", RegexOptions.Compiled);
+        //    command = regex.Replace(command, match =>
+        //    {
+        //        var matched = "";
+        //        foreach (var p in match.Value.Split('.'))
+        //        {
+
+        //            Log.Debug("Searching for token {0} in client config", p);
+
+        //            if (m_configsettings["client"][p] != null)
+        //            {
+        //                matched += m_configsettings["client"][p];
+        //            }
+        //            else
+        //            {
+        //                break;
+        //            }
+        //        }
+
+        //        if (string.IsNullOrEmpty(matched))
+        //        {
+
+        //            if (match.Value.Contains("|")) //something like  this: :::cpu.usage|80:::
+        //            {
+
+        //                matched += match.Value.Remove(0, match.Value.IndexOf("|") + 1).ToString().Replace(":::", "").Trim();
+        //            }
+        //            else
+        //            {
+        //                temptokens.Add(match.Value);
+        //            }
+
+        //        }
+
+        //        return matched;
+        //    });
+
+        //    unmatchedTokens = temptokens;
+
+        //    return command;
+        //}
 
         public static List<string> GetRedactlist(JObject check)
         {

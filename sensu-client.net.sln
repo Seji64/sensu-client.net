@@ -22,6 +22,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-memory", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-disk", "..\..\Plugins\sensu-client.net\sensu-client.net-disk\sensu-client.net-disk.csproj", "{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-mssql", "..\..\Plugins\sensu-client.net\sensu-client.net-mssql\sensu-client.net-mssql.csproj", "{FB188EDC-A15F-4D69-BF04-485844D10BA4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensu-client.net-services", "..\..\Plugins\sensu-client.net\sensu-client.net-services\sensu-client.net-services.csproj", "{92B6F973-7A50-4A8F-9B89-E9E724231882}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +103,30 @@ Global
 		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|x86.ActiveCfg = Release|Any CPU
 		{351A61BF-28A7-413F-B3DC-FA3ED68F0C66}.Release|x86.Build.0 = Release|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Debug|x86.Build.0 = Debug|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Release|x86.ActiveCfg = Release|Any CPU
+		{FB188EDC-A15F-4D69-BF04-485844D10BA4}.Release|x86.Build.0 = Release|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Debug|x86.Build.0 = Debug|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Release|Any CPU.Build.0 = Release|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Release|x86.ActiveCfg = Release|Any CPU
+		{92B6F973-7A50-4A8F-9B89-E9E724231882}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

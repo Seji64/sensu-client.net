@@ -390,7 +390,7 @@ namespace sensu_client.net
             string m_checkargs = String.Empty;
 
             bool m_skip_publish = false;
-            List<string> m_unmatchedTokens = new List<string>();         
+            string m_tokenparseerror = string.Empty;         
             Stopwatch m_stopwatch = new Stopwatch();
             TimeSpan m_check_timeout = TimeSpan.MinValue;
 
@@ -417,7 +417,7 @@ namespace sensu_client.net
 
                 #region "split command and arguments and get check properties"
 
-                m_command = SensuClientHelper.SubstitueCommandTokens(check, m_configsettings, out m_unmatchedTokens);
+                m_command = SensuClientHelper.SubstitueCommandTokens(check, out m_tokenparseerror, (JObject)m_configsettings["client"]);
                 m_command = m_command.Trim();
 
                 if (check["timeout"] != null)
@@ -425,7 +425,7 @@ namespace sensu_client.net
                     m_check_timeout = TimeSpan.Parse(check["timeout"].ToString());
                 }
 
-                if (m_unmatchedTokens == null || m_unmatchedTokens.Count == 0)
+                if (String.IsNullOrWhiteSpace(m_tokenparseerror))
                 {
 
                     if (m_command.Contains(" "))
@@ -624,7 +624,7 @@ namespace sensu_client.net
 
             catch (UnmatchedCommandTokensException)
             {
-                check["output"] = string.Format("Unmatched command tokens: {0}", string.Join(",", m_unmatchedTokens.ToArray()));
+                check["output"] = string.Format("Unmatched command tokens: {0}", m_tokenparseerror);
                 check["status"] = 3;
                 check["handle"] = false;
             }
