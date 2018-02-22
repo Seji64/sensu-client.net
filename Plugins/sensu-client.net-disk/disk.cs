@@ -163,6 +163,11 @@ namespace sensu_client.net_disk
            //nothing to do
         }
 
+        public void Dispose()
+        {
+            //do nothing
+        }
+
         public string Name()
         {
             return "DiskCheckPlugin";

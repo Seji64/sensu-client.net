@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.RegularExpressions;
+
+namespace sensu_client.net.pluginterface
+{ 
 /// <summary>
 /// Arguments class
 /// </summary>
@@ -228,4 +231,6 @@ public class Arguments
 
         return m_array.ToArray();
     }
+}
+
 }

@@ -19,6 +19,7 @@ namespace sensu_client.net.plugin
             return "Tim Hofmann";
         }
 
+
         public ExecuteResult execute(string handler, Arguments arguments)
         {
 
@@ -336,6 +337,11 @@ namespace sensu_client.net.plugin
 
         }
 
+        public void Dispose()
+        {
+            //do nothing
+        }
+
         public string Name()
         {
             return "MSSQLPlugin";
@@ -345,5 +351,7 @@ namespace sensu_client.net.plugin
         {
             return "0.5";
         }
+
+
     }
 }

@@ -216,6 +216,11 @@ namespace sensu_client.net.plugin
             //nothing to do
         }
 
+        public void Dispose()
+        {
+            //do nothing
+        }
+
         public string Name()
         {
             return "CPUCheckPlugin";

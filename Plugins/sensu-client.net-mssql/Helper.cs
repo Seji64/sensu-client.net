@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using sensu_client.net.pluginterface;
+using System;
 
 namespace sensu_client.net.plugin
 {
