@@ -349,7 +349,7 @@ namespace sensu_client.net.plugin
 
         public string Version()
         {
-            return "0.5";
+            return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
         }
 
 

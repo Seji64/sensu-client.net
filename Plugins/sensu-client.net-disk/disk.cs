@@ -175,47 +175,11 @@ namespace sensu_client.net_disk
 
         public string Version()
         {
-            return "0.1";
+            return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
         }
     }
 
-    public static class DriveMeasureExtension
-    {
 
-        public enum SizeUnits
-        {
-            Byte, KB, MB, GB, TB, PB, EB, ZB, YB
-        }
-
-        public static string ToSize(this double value, SizeUnits unit)
-        {
-            return (value / (double)Math.Pow(1024, (Int64)unit)).ToString("0.00");
-        }
-    }
-
-    public class DriveMeasure
-
-    {
-        public enum State
-        {
-            OK,WARNING,CRITICAL,UNKNOWN
-        }
-
-        public State DriveState;
-
-        public string ID;
-
-        public double FreeSpace;
-
-        public double Size;
-
-        public double UsedPercentage;
-
-        public override string ToString()
-        {
-            return String.Format("({0}) {1}%, FREE: {2} GB, SIZE: {3} GB`n",this.ID,this.UsedPercentage , DriveMeasureExtension.ToSize(this.FreeSpace,DriveMeasureExtension.SizeUnits.GB), DriveMeasureExtension.ToSize(this.Size, DriveMeasureExtension.SizeUnits.GB));
-        }
-
-    }
+    
 
 }

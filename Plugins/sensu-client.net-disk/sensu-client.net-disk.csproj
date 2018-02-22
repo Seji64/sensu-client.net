@@ -45,6 +45,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Classes\DriveMeasure.cs" />
+    <Compile Include="Classes\DriveMeasureExtension.cs" />
     <Compile Include="disk.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

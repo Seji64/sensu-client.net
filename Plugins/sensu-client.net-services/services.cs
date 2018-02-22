@@ -228,7 +228,7 @@ namespace sensu_client.net.plugin
 
         public string Version()
         {
-            return "0.2";
+            return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
         }
     }
 }

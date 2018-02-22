@@ -49,7 +49,7 @@
 
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="sensuclient_service" Guid="977a70b5-5e85-4225-acda-403fa3a6b4ac">
-        <File Source="$(var.sensu-client.net.TargetDir)" Id="sensuclient.net.exe" Name="sensu-client.net.exe" />
+        <File Source="$(var.sensu-client.net.TargetDir)" Id="sensuclient.net.exe" Name="sensu-client.net.exe" Vital="yes" />
         <ServiceInstall Id="ServiceInstaller" Type="ownProcess" Vital="yes" Name="sensu-client.net" DisplayName="Sensu Client.NET" Description="Sensu Client" Start="auto" Account="LocalSystem" ErrorControl="ignore" Interactive="no">
           <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="none" RestartServiceDelayInSeconds="60" ResetPeriodInDays="1" />
         </ServiceInstall>
@@ -59,53 +59,51 @@
         <File Source="$(var.sensu-client.net.TargetDir)\sensu-client.net.exe.config" Name="sensu-client.net.exe.config" />
       </Component>
       <Component Id="NLog.dll" Guid="c0d45115-b6ce-442e-99e5-b5d07349da81">
-        <File Source="$(var.sensu-client.net.TargetDir)\NLog.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\NLog.dll" Name="Nlog.dll" Vital="yes" />
       </Component>
       <Component Id="NLog.config" Guid="5c74b4b0-5709-4e76-b99a-e312be11b58c">
-        <File Source="$(var.sensu-client.net.TargetDir)\NLog.config" />
+        <File Source="$(var.sensu-client.net.TargetDir)\NLog.config" Name="NLog.config" Vital="yes" />
       </Component>
       <Component Id="RabbitMQ.Client.dll" Guid="0cabcce4-9bd7-4435-b301-70a38efa4f59">
-        <File Source="$(var.sensu-client.net.TargetDir)\RabbitMQ.Client.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\RabbitMQ.Client.dll" Name="RabbitMQ.Client.dll" Vital="yes"/>
       </Component>
       <Component Id="Newtonsoft.Json.dll" Guid="f9a5f820-a239-4444-9029-e17058803b61">
-        <File Source="$(var.sensu-client.net.TargetDir)\Newtonsoft.Json.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\Newtonsoft.Json.dll" Name="Newtonsoft.Json.dll" Vital="yes"/>
       </Component>
-      <Component Id="config.json" Guid="94750ef6-e2e4-449f-a335-0f44d34f2699">
-        <File Source="$(var.sensu-client.net.TargetDir)\config.json" />
+      <Component Id="config.json" Guid="94750ef6-e2e4-449f-a335-0f44d34f2699" NeverOverwrite="yes">
+        <File Source="$(var.sensu-client.net.TargetDir)\config.json" Name="config.json" KeyPath="yes"/>
       </Component>
       <Component Id="Microsoft.Diagnostics.Tracing.EventSource.dll" Guid="2af0c863-cfb7-43fc-9ab4-d660e5d94039">
-        <File Id="Microsoft.Diagnostics.Tracing.EventSource.dll" Name="Microsoft.Diagnostics.Tracing.EventSource.dll" Source="$(var.sensu-client.net.TargetDir)Microsoft.Diagnostics.Tracing.EventSource.dll" />
+        <File Id="Microsoft.Diagnostics.Tracing.EventSource.dll" Name="Microsoft.Diagnostics.Tracing.EventSource.dll" Source="$(var.sensu-client.net.TargetDir)Microsoft.Diagnostics.Tracing.EventSource.dll" Vital="yes" />
       </Component>
       <Component Id="PluginInterfaces.dll" Guid="ed6e9d47-511b-4058-ab87-eeeddfbf63f4">
-        <File Id="PluginInterfaces.dll" Name="PluginInterfaces.dll" Source="$(var.PluginInterfaces.TargetDir)PluginInterfaces.dll" />
+        <File Id="PluginInterfaces.dll" Name="PluginInterfaces.dll" Source="$(var.PluginInterfaces.TargetDir)PluginInterfaces.dll" Vital="yes" />
       </Component>
       <Component Id="Icon.ico" Guid="901A20C4-7A88-47AF-8AD9-76264238E35E">
-        <File Source="$(var.sensu-client.net.TargetDir)\Icon.ico" />
+        <File Source="$(var.sensu-client.net.TargetDir)\Icon.ico" Name="Icon.ico" />
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="config" Directory="configdir">
-      <Component Id="client.json" Guid="32a86313-d315-42ac-aee0-b0fdc2f34b4f">
-        <File Source="$(var.sensu-client.net.TargetDir)\conf.d\client.json" />
+      <Component Id="client.json" Guid="32a86313-d315-42ac-aee0-b0fdc2f34b4f" NeverOverwrite="yes">
+        <File Source="$(var.sensu-client.net.TargetDir)\conf.d\client.json" Name="client.json" KeyPath="yes"/>
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="plugin" Directory="plugindir">
       <Component Id="cpu_plugin" Guid="91E2F3CD-67E6-40F7-AF27-119D403F5B07">
-        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-cpu.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-cpu.dll" Name="sensu-client.net-cpu.dll" DefaultVersion="0.1.0.0" />
       </Component>
       <Component Id="memory_plugin" Guid="CFA5C30F-B78E-4906-80DC-DF9C114D4945">
-        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-memory.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-memory.dll" Name="sensu-client.net-memory.dll" DefaultVersion="0.1.0.0" />
       </Component>
       <Component Id="disk_plugin" Guid="ADA938E3-0D19-4E22-A010-9E5DA4A7A574">
-        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-disk.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-disk.dll" Name="sensu-client.net-disk.dll" DefaultVersion="0.1.0.0" />
       </Component>
       <Component Id="services_plugin" Guid="18A44070-692E-4799-B02D-2B5D972530AC">
-        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-services.dll" />
+        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-services.dll" Name="sensu-client.net-services.dll" DefaultVersion="0.1.0.0" />
       </Component>
       <Component Id="mssql_plugin" Guid="BCFFCE52-57F4-4445-A251-486ED5E4E4CA">
-        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-mssql.dll" />
-      </Component>
-      <Component Id="mssql_plugin_config" Guid="31BF9CBF-FDB5-4B2D-82C7-5E03EB7CD87F">
-        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-mssql.dll.config" />
+        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-mssql.dll" Name="sensu-client.net-mssql.dll" DefaultVersion="0.1.0.0" />
+        <File Source="$(var.sensu-client.net.TargetDir)\plugins\sensu-client.net-mssql.dll.config" Name="sensu-client.net-mssql.dll.config" />
       </Component>
     </ComponentGroup>
   </Fragment>
