@@ -61,7 +61,7 @@
       <Component Id="NLog.dll" Guid="c0d45115-b6ce-442e-99e5-b5d07349da81">
         <File Source="$(var.sensu-client.net.TargetDir)\NLog.dll" />
       </Component>
-      <Component Id="NLog.config" Guid="5c74b4b0-5709-4e76-b99a-e312be11b58c" NeverOverwrite="yes">
+      <Component Id="NLog.config" Guid="5c74b4b0-5709-4e76-b99a-e312be11b58c">
         <File Source="$(var.sensu-client.net.TargetDir)\NLog.config" />
       </Component>
       <Component Id="RabbitMQ.Client.dll" Guid="0cabcce4-9bd7-4435-b301-70a38efa4f59">
@@ -70,7 +70,7 @@
       <Component Id="Newtonsoft.Json.dll" Guid="f9a5f820-a239-4444-9029-e17058803b61">
         <File Source="$(var.sensu-client.net.TargetDir)\Newtonsoft.Json.dll" />
       </Component>
-      <Component Id="config.json" Guid="94750ef6-e2e4-449f-a335-0f44d34f2699" NeverOverwrite="yes">
+      <Component Id="config.json" Guid="94750ef6-e2e4-449f-a335-0f44d34f2699">
         <File Source="$(var.sensu-client.net.TargetDir)\config.json" />
       </Component>
       <Component Id="Microsoft.Diagnostics.Tracing.EventSource.dll" Guid="2af0c863-cfb7-43fc-9ab4-d660e5d94039">
@@ -84,7 +84,7 @@
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="config" Directory="configdir">
-      <Component Id="client.json" Guid="32a86313-d315-42ac-aee0-b0fdc2f34b4f" NeverOverwrite="yes">
+      <Component Id="client.json" Guid="32a86313-d315-42ac-aee0-b0fdc2f34b4f">
         <File Source="$(var.sensu-client.net.TargetDir)\conf.d\client.json" />
       </Component>
     </ComponentGroup>

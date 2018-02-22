@@ -28,7 +28,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Diverse Projekte\sensu-client.net\bin\Release\plugins\</OutputPath>
+    <OutputPath>..\..\bin\Release\plugins\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -68,6 +68,7 @@
     <ProjectReference Include="..\..\PluginInterfaces\PluginInterfaces.csproj">
       <Project>{0474b9fe-1b80-4f9b-902e-82d9de6c2360}</Project>
       <Name>PluginInterfaces</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
