@@ -156,53 +156,6 @@ namespace sensu_client.net_mssql.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("SET NOCOUNT ON;\r\nSET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED\r\nIF OBJECT_ID(\'" +
-            "tempdb..#baseline\') IS NOT NULL\r\n\tDROP TABLE #baseline;\r\nSELECT\r\n    DB_NAME(mf." +
-            "database_id) AS database_name,\r\n    CAST(mf.size AS BIGINT) as database_size_8k_" +
-            "pages,\r\n    CAST(mf.max_size AS BIGINT) as database_max_size_8k_pages,\r\n    size" +
-            "_on_disk_bytes ,\r\n\ttype_desc as datafile_type,\r\n    GETDATE() AS baselineDate\r\nI" +
-            "NTO #baseline\r\nFROM sys.dm_io_virtual_file_stats(NULL, NULL) AS divfs\r\nINNER JOI" +
-            "N sys.master_files AS mf ON mf.database_id = divfs.database_id\r\n\tAND mf.file_id " +
-            "= divfs.file_id\r\nDECLARE @DynamicPivotQuery AS NVARCHAR(MAX)\r\nDECLARE @ColumnNam" +
-            "e AS NVARCHAR(MAX), @ColumnName2 AS NVARCHAR(MAX)\r\nSELECT @ColumnName= ISNULL(@C" +
-            "olumnName + \',\',\'\') + QUOTENAME(database_name)\r\nFROM (SELECT DISTINCT database_n" +
-            "ame FROM #baseline) AS bl\r\n--Prepare the PIVOT query using the dynamic\r\nSET @Dyn" +
-            "amicPivotQuery = N\'\r\nSELECT measurement = \'\'log_size_bytes\'\', sql_instance = REP" +
-            "LACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + @ColumnName + " +
-            "\'  FROM\r\n(\r\nSELECT database_name, size_on_disk_bytes\r\nFROM #baseline\r\nWHERE data" +
-            "file_type = \'\'LOG\'\'\r\n) as V\r\nPIVOT(SUM(size_on_disk_bytes) FOR database_name IN " +
-            "(\' + @ColumnName + \')) AS PVTTable\r\nUNION ALL\r\nSELECT measurement = \'\'row_size_b" +
-            "ytes\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database si" +
-            "ze\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT database_name, size_on_disk_bytes\r\n" +
-            "FROM #baseline\r\nWHERE datafile_type = \'\'ROWS\'\'\r\n) as V\r\nPIVOT(SUM(size_on_disk_b" +
-            "ytes) FOR database_name IN (\' + @ColumnName + \')) AS PVTTable\r\nUNION ALL\r\nSELECT" +
-            " measurement = \'\'row_size_8k_pages\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\'" +
-            ", \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT datab" +
-            "ase_name, database_size_8k_pages\r\nFROM #baseline\r\nWHERE datafile_type = \'\'ROWS\'\'" +
-            "\r\n) as V\r\nPIVOT(SUM(database_size_8k_pages) FOR database_name IN (\' + @ColumnNam" +
-            "e + \')) AS PVTTable\r\nUNION ALL\r\nSELECT measurement = \'\'log_size_8k_pages\'\', sql_" +
-            "instance = REPLACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + " +
-            "@ColumnName + \'  FROM\r\n(\r\nSELECT database_name, database_size_8k_pages\r\nFROM #ba" +
-            "seline\r\nWHERE datafile_type = \'\'LOG\'\'\r\n) as V\r\nPIVOT(SUM(database_size_8k_pages)" +
-            " FOR database_name IN (\' + @ColumnName + \')) AS PVTTable\r\nUNION ALL\r\nSELECT meas" +
-            "urement = \'\'row_max_size_8k_pages\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\'," +
-            " \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT databa" +
-            "se_name, database_max_size_8k_pages\r\nFROM #baseline\r\nWHERE datafile_type = \'\'ROW" +
-            "S\'\'\r\n) as V\r\nPIVOT(SUM(database_max_size_8k_pages) FOR database_name IN (\' + @Co" +
-            "lumnName + \')) AS PVTTable\r\nUNION ALL\r\nSELECT measurement = \'\'log_max_size_8k_pa" +
-            "ges\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database siz" +
-            "e\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT database_name, database_max_size_8k_" +
-            "pages\r\nFROM #baseline\r\nWHERE datafile_type = \'\'LOG\'\'\r\n) as V\r\nPIVOT(SUM(database" +
-            "_max_size_8k_pages) FOR database_name IN (\' + @ColumnName + \')) AS PVTTable\r\n\'\r\n" +
-            "--PRINT @DynamicPivotQuery\r\nEXEC sp_executesql @DynamicPivotQuery;")]
-        public string DatabaseSize {
-            get {
-                return ((string)(this["DatabaseSize"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute(@"SELECT
 'sqlserver_database_io' As [measurement],
 REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
@@ -630,6 +583,53 @@ OPTION( RECOMPILE );")]
         public string PerformanceMetric {
             get {
                 return ((string)(this["PerformanceMetric"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("SET NOCOUNT ON;\r\nSET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED\r\nIF OBJECT_ID(\'" +
+            "tempdb..#baseline\') IS NOT NULL\r\n\tDROP TABLE #baseline;\r\nSELECT\r\n    DB_NAME(mf." +
+            "database_id) AS database_name,\r\n    CAST(mf.size AS BIGINT) as database_size_8k_" +
+            "pages,\r\n    CAST(mf.max_size AS BIGINT) as database_max_size_8k_pages,\r\n    size" +
+            "_on_disk_bytes ,\r\n\ttype_desc as datafile_type\r\nINTO #baseline\r\nFROM sys.dm_io_vi" +
+            "rtual_file_stats(NULL, NULL) AS divfs\r\nINNER JOIN sys.master_files AS mf ON mf.d" +
+            "atabase_id = divfs.database_id\r\n\tAND mf.file_id = divfs.file_id\r\nDECLARE @Dynami" +
+            "cPivotQuery AS NVARCHAR(MAX)\r\nDECLARE @ColumnName AS NVARCHAR(MAX), @ColumnName2" +
+            " AS NVARCHAR(MAX)\r\nSELECT @ColumnName= ISNULL(@ColumnName + \',\',\'\') + QUOTENAME(" +
+            "database_name)\r\nFROM (SELECT DISTINCT database_name FROM #baseline) AS bl\r\n--Pre" +
+            "pare the PIVOT query using the dynamic\r\nSET @DynamicPivotQuery = N\'\r\nSELECT meas" +
+            "urement = \'\'log_size_bytes\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\')" +
+            ", type = \'\'Database size\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT database_name" +
+            ", size_on_disk_bytes\r\nFROM #baseline\r\nWHERE datafile_type = \'\'LOG\'\'\r\n) as V\r\nPIV" +
+            "OT(SUM(size_on_disk_bytes) FOR database_name IN (\' + @ColumnName + \')) AS PVTTab" +
+            "le\r\nUNION ALL\r\nSELECT measurement = \'\'row_size_bytes\'\', sql_instance = REPLACE(@" +
+            "@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + @ColumnName + \'  FRO" +
+            "M\r\n(\r\nSELECT database_name, size_on_disk_bytes\r\nFROM #baseline\r\nWHERE datafile_t" +
+            "ype = \'\'ROWS\'\'\r\n) as V\r\nPIVOT(SUM(size_on_disk_bytes) FOR database_name IN (\' + " +
+            "@ColumnName + \')) AS PVTTable\r\nUNION ALL\r\nSELECT measurement = \'\'row_size_8k_pag" +
+            "es\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database size" +
+            "\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT database_name, database_size_8k_pages" +
+            "\r\nFROM #baseline\r\nWHERE datafile_type = \'\'ROWS\'\'\r\n) as V\r\nPIVOT(SUM(database_siz" +
+            "e_8k_pages) FOR database_name IN (\' + @ColumnName + \')) AS PVTTable\r\nUNION ALL\r\n" +
+            "SELECT measurement = \'\'log_size_8k_pages\'\', sql_instance = REPLACE(@@SERVERNAME," +
+            " \'\'\\\'\', \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT" +
+            " database_name, database_size_8k_pages\r\nFROM #baseline\r\nWHERE datafile_type = \'\'" +
+            "LOG\'\'\r\n) as V\r\nPIVOT(SUM(database_size_8k_pages) FOR database_name IN (\' + @Colu" +
+            "mnName + \')) AS PVTTable\r\nUNION ALL\r\nSELECT measurement = \'\'row_max_size_8k_page" +
+            "s\'\', sql_instance = REPLACE(@@SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database size\'" +
+            "\'\r\n, \' + @ColumnName + \'  FROM\r\n(\r\nSELECT database_name, database_max_size_8k_pa" +
+            "ges\r\nFROM #baseline\r\nWHERE datafile_type = \'\'ROWS\'\'\r\n) as V\r\nPIVOT(SUM(database_" +
+            "max_size_8k_pages) FOR database_name IN (\' + @ColumnName + \')) AS PVTTable\r\nUNIO" +
+            "N ALL\r\nSELECT measurement = \'\'log_max_size_8k_pages\'\', sql_instance = REPLACE(@@" +
+            "SERVERNAME, \'\'\\\'\', \'\':\'\'), type = \'\'Database size\'\'\r\n, \' + @ColumnName + \'  FROM" +
+            "\r\n(\r\nSELECT database_name, database_max_size_8k_pages\r\nFROM #baseline\r\nWHERE dat" +
+            "afile_type = \'\'LOG\'\'\r\n) as V\r\nPIVOT(SUM(database_max_size_8k_pages) FOR database" +
+            "_name IN (\' + @ColumnName + \')) AS PVTTable\r\n\'\r\n--PRINT @DynamicPivotQuery\r\nEXEC" +
+            " sp_executesql @DynamicPivotQuery;")]
+        public string DatabaseSize {
+            get {
+                return ((string)(this["DatabaseSize"]));
             }
         }
     }

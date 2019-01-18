@@ -71,7 +71,6 @@ namespace sensu_client.net.plugin
 
         public static ExecuteResult CheckAvailbilityGroups(SqlConnection m_sql_connection)
         {
-            Log.Info("Calling Execute");
 
             return ExecuteAndParseCheck(m_sql_connection, CheckType.AvailbilityGroup, "SELECT * FROM sys.dm_hadr_availability_group_states");
         }

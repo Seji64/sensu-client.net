@@ -247,85 +247,6 @@ GROUP BY ISNULL(clerk_names.name,mc.type)
 HAVING SUM(pages_kb) &gt;= 1024
 OPTION( RECOMPILE );</Value>
     </Setting>
-    <Setting Name="DatabaseSize" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
-IF OBJECT_ID('tempdb..#baseline') IS NOT NULL
-	DROP TABLE #baseline;
-SELECT
-    DB_NAME(mf.database_id) AS database_name,
-    CAST(mf.size AS BIGINT) as database_size_8k_pages,
-    CAST(mf.max_size AS BIGINT) as database_max_size_8k_pages,
-    size_on_disk_bytes ,
-	type_desc as datafile_type,
-    GETDATE() AS baselineDate
-INTO #baseline
-FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS divfs
-INNER JOIN sys.master_files AS mf ON mf.database_id = divfs.database_id
-	AND mf.file_id = divfs.file_id
-DECLARE @DynamicPivotQuery AS NVARCHAR(MAX)
-DECLARE @ColumnName AS NVARCHAR(MAX), @ColumnName2 AS NVARCHAR(MAX)
-SELECT @ColumnName= ISNULL(@ColumnName + ',','') + QUOTENAME(database_name)
-FROM (SELECT DISTINCT database_name FROM #baseline) AS bl
---Prepare the PIVOT query using the dynamic
-SET @DynamicPivotQuery = N'
-SELECT measurement = ''log_size_bytes'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
-, ' + @ColumnName + '  FROM
-(
-SELECT database_name, size_on_disk_bytes
-FROM #baseline
-WHERE datafile_type = ''LOG''
-) as V
-PIVOT(SUM(size_on_disk_bytes) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
-UNION ALL
-SELECT measurement = ''row_size_bytes'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
-, ' + @ColumnName + '  FROM
-(
-SELECT database_name, size_on_disk_bytes
-FROM #baseline
-WHERE datafile_type = ''ROWS''
-) as V
-PIVOT(SUM(size_on_disk_bytes) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
-UNION ALL
-SELECT measurement = ''row_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
-, ' + @ColumnName + '  FROM
-(
-SELECT database_name, database_size_8k_pages
-FROM #baseline
-WHERE datafile_type = ''ROWS''
-) as V
-PIVOT(SUM(database_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
-UNION ALL
-SELECT measurement = ''log_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
-, ' + @ColumnName + '  FROM
-(
-SELECT database_name, database_size_8k_pages
-FROM #baseline
-WHERE datafile_type = ''LOG''
-) as V
-PIVOT(SUM(database_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
-UNION ALL
-SELECT measurement = ''row_max_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
-, ' + @ColumnName + '  FROM
-(
-SELECT database_name, database_max_size_8k_pages
-FROM #baseline
-WHERE datafile_type = ''ROWS''
-) as V
-PIVOT(SUM(database_max_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
-UNION ALL
-SELECT measurement = ''log_max_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
-, ' + @ColumnName + '  FROM
-(
-SELECT database_name, database_max_size_8k_pages
-FROM #baseline
-WHERE datafile_type = ''LOG''
-) as V
-PIVOT(SUM(database_max_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
-'
---PRINT @DynamicPivotQuery
-EXEC sp_executesql @DynamicPivotQuery;</Value>
-    </Setting>
     <Setting Name="DatabaseIO" Type="System.String" Scope="Application">
       <Value Profile="(Default)">SELECT
 'sqlserver_database_io' As [measurement],
@@ -1014,6 +935,84 @@ FROM #PCounters
 ) as V
 PIVOT(SUM(cntr_value) FOR counter_name IN (' + @ColumnName + ')) AS PVTTable
 '
+EXEC sp_executesql @DynamicPivotQuery;</Value>
+    </Setting>
+    <Setting Name="DatabaseSize" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+IF OBJECT_ID('tempdb..#baseline') IS NOT NULL
+	DROP TABLE #baseline;
+SELECT
+    DB_NAME(mf.database_id) AS database_name,
+    CAST(mf.size AS BIGINT) as database_size_8k_pages,
+    CAST(mf.max_size AS BIGINT) as database_max_size_8k_pages,
+    size_on_disk_bytes ,
+	type_desc as datafile_type
+INTO #baseline
+FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS divfs
+INNER JOIN sys.master_files AS mf ON mf.database_id = divfs.database_id
+	AND mf.file_id = divfs.file_id
+DECLARE @DynamicPivotQuery AS NVARCHAR(MAX)
+DECLARE @ColumnName AS NVARCHAR(MAX), @ColumnName2 AS NVARCHAR(MAX)
+SELECT @ColumnName= ISNULL(@ColumnName + ',','') + QUOTENAME(database_name)
+FROM (SELECT DISTINCT database_name FROM #baseline) AS bl
+--Prepare the PIVOT query using the dynamic
+SET @DynamicPivotQuery = N'
+SELECT measurement = ''log_size_bytes'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
+, ' + @ColumnName + '  FROM
+(
+SELECT database_name, size_on_disk_bytes
+FROM #baseline
+WHERE datafile_type = ''LOG''
+) as V
+PIVOT(SUM(size_on_disk_bytes) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
+UNION ALL
+SELECT measurement = ''row_size_bytes'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
+, ' + @ColumnName + '  FROM
+(
+SELECT database_name, size_on_disk_bytes
+FROM #baseline
+WHERE datafile_type = ''ROWS''
+) as V
+PIVOT(SUM(size_on_disk_bytes) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
+UNION ALL
+SELECT measurement = ''row_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
+, ' + @ColumnName + '  FROM
+(
+SELECT database_name, database_size_8k_pages
+FROM #baseline
+WHERE datafile_type = ''ROWS''
+) as V
+PIVOT(SUM(database_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
+UNION ALL
+SELECT measurement = ''log_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
+, ' + @ColumnName + '  FROM
+(
+SELECT database_name, database_size_8k_pages
+FROM #baseline
+WHERE datafile_type = ''LOG''
+) as V
+PIVOT(SUM(database_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
+UNION ALL
+SELECT measurement = ''row_max_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
+, ' + @ColumnName + '  FROM
+(
+SELECT database_name, database_max_size_8k_pages
+FROM #baseline
+WHERE datafile_type = ''ROWS''
+) as V
+PIVOT(SUM(database_max_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
+UNION ALL
+SELECT measurement = ''log_max_size_8k_pages'', sql_instance = REPLACE(@@SERVERNAME, ''\'', '':''), type = ''Database size''
+, ' + @ColumnName + '  FROM
+(
+SELECT database_name, database_max_size_8k_pages
+FROM #baseline
+WHERE datafile_type = ''LOG''
+) as V
+PIVOT(SUM(database_max_size_8k_pages) FOR database_name IN (' + @ColumnName + ')) AS PVTTable
+'
+--PRINT @DynamicPivotQuery
 EXEC sp_executesql @DynamicPivotQuery;</Value>
     </Setting>
   </Settings>

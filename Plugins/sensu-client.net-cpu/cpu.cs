@@ -206,7 +206,6 @@ namespace sensu_client.net.plugin
 
             m_handlers.Add("!cpu-load");
             m_handlers.Add("!cpu-queue");
-            m_handlers.Add("!cpu-load-metric");
 
             return m_handlers;
         }

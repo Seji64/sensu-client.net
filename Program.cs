@@ -121,6 +121,28 @@ namespace sensu_client.net
 
         }
 
+        public void UnloadPlugins()
+        {
+
+
+            foreach (ISensuClientPlugin m_plugin in m_plugins)
+            {
+
+                try
+                {
+                    m_plugin.Dispose();
+                }
+                catch
+                {
+                    _log.Error(string.Format("Dispose of plugin {0} failed", m_plugin.Name()));
+                }
+
+                
+
+            }
+
+        }
+
         void Run()
         {
 

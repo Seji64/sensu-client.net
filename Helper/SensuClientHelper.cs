@@ -87,6 +87,7 @@ namespace sensu_client.net
             {
                 errors = ErroTextDefaultValueMissing;
                 errors += string.Join(" , ", tempErrors.ToArray());
+                Log.Error("Error while replacing Command Tokens => {0}", errors);
             }
             return command;
         }

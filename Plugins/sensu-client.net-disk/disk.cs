@@ -64,7 +64,7 @@ namespace sensu_client.net_disk
 
                                 DriveMeasure m_drive_measure = new DriveMeasure();
 
-                                m_drive_measure.UsedPercentage = Math.Round((double)((m_drive.TotalSize - m_drive.AvailableFreeSpace) / m_drive.TotalSize) * 100, 2);
+                                m_drive_measure.UsedPercentage = Math.Round((((double)m_drive.TotalSize - (double)m_drive.AvailableFreeSpace) / (double)m_drive.TotalSize) * 100, 2);
                                 m_drive_measure.FreeSpace = m_drive.AvailableFreeSpace;
                                 m_drive_measure.Size = m_drive.TotalSize;
                                 m_drive_measure.ID = m_drive.Name.Replace(System.IO.Path.PathSeparator.ToString(),"");
@@ -123,9 +123,11 @@ namespace sensu_client.net_disk
                             m_result.ExitCode = 1;
                             m_result.Output = String.Format("CheckDisk WARNING: {0} disk in warning state `n{1};", m_measure_values.Where((m_disk) => m_disk.DriveState.Equals(DriveMeasure.State.WARNING)).Count(), m_disks_warn);
                         }
-
-                        m_result.ExitCode = 0;
-                        m_result.Output = String.Format("CheckDisk OK: All disk usage under {0}%",m_warn_threshold);
+                        else
+                        {
+                            m_result.ExitCode = 0;
+                            m_result.Output = String.Format("CheckDisk OK: All disk usage under {0}%", m_warn_threshold);
+                        }
 
                     }
                     catch (Exception)

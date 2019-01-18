@@ -316,26 +316,42 @@ namespace sensu_client.net
 
                 Log.Info("Publishing Check Result {0}", JsonConvert.SerializeObject(payload, SerializerSettings));
 
-                var properties = new BasicProperties
+                Task.Factory.StartNew(() =>
                 {
-                    ContentType = "application/octet-stream",
-                    Priority = 0,
-                    DeliveryMode = 1
-                };
 
-                lock (m_lock_pulish)
-                {
-                    RabbitMQChannel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
-                }
+                    var properties = new BasicProperties
+                    {
+                        ContentType = "application/octet-stream",
+                        Priority = 0,
+                        DeliveryMode = 1
+                    };
 
+                    lock (m_lock_pulish)
+                    {
+                        RabbitMQChannel.BasicPublish("", "results", properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload)));
+                    }
+
+                });
 
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Publishing Check Result failed: {0}",ex.Message);
+              
+                if (ex.InnerException != null)
+                {
+                    Log.Error(ex, "Publishing Check Result failed: {0}", ex.InnerException.Message);
+                }
+                else
+                {
+                    Log.Error(ex, "Publishing Check Result failed: {0}", ex.Message);
+                }
+
             }
             finally
             {
+
+                Log.Debug("Check Result successfully published!");
+
                 lock (m_lock_checkinprogress)
                 {
                     if (ChecksInProgress.Contains(check["name"].ToString()))
@@ -420,7 +436,8 @@ namespace sensu_client.net
 
                 if (check["timeout"] != null)
                 {
-                    m_check_timeout = TimeSpan.Parse(check["timeout"].ToString());
+                    m_check_timeout = TimeSpan.FromSeconds(Double.Parse(check["timeout"].ToString()));
+                    Log.Debug("Received a timeout of {0} ms for this Check", m_check_timeout.TotalMilliseconds);
                 }
 
                 if (String.IsNullOrWhiteSpace(m_tokenparseerror))
@@ -441,6 +458,8 @@ namespace sensu_client.net
                 {
                     throw new UnmatchedCommandTokensException();
                 }
+
+                Log.Info("Formatted Command => {0}", m_command);
 
                 #endregion
 
@@ -474,6 +493,17 @@ namespace sensu_client.net
 
                                 Arguments m_command_args = new Arguments(Arguments.SplitCommandLine(m_checkargs));
 
+                                Log.Debug("Parsed Args:");
+
+                                foreach (var arg in m_command_args.ParsedArguments)
+                                {
+                                    foreach(var value in arg.Value)
+                                    {
+                                        Log.Debug("{0} => {1}", arg.Key,value.ToString());
+                                    }
+
+                                }
+                                   
                                 m_stopwatch.Start();
 
                                 m_check_cancelationtoken = m_check_cancelationtokensrc.Token;
@@ -485,7 +515,7 @@ namespace sensu_client.net
                                     m_check_task.Wait((int)m_check_timeout.TotalMilliseconds, m_check_cancelationtoken);
                                 }
                                 else
-                                { 
+                                {
                                     m_check_task.Wait();
                                 }
                
@@ -505,7 +535,10 @@ namespace sensu_client.net
                             catch (Exception ex)
                             {
                                 Log.Error(ex, ex.Message);
-                                
+
+                                check["output"] = "Unexpected error";
+                                check["status"] = 2;
+
                                 //Print error of innerexception cause we using Tasks
                                 if (ex.InnerException != null)
                                 {
@@ -564,14 +597,17 @@ namespace sensu_client.net
 
                         if (!m_check_timeout.Equals(TimeSpan.MinValue))
                         {
-                            if (!m_check_process.WaitForExit((int)m_check_timeout.TotalMilliseconds))
+
+                            bool wait_result = m_check_process.WaitForExit((int)m_check_timeout.TotalMilliseconds);
+
+                            if (!wait_result)
                             {
                                 m_check_process.Kill();
                             }
                         }
                         else
                         {
-                            m_check_process.WaitForExit();
+                            m_check_process.WaitForExit();            
                         }
 
                         check["output"] = string.Format("{0}{1}", m_check_process.StandardOutput.ReadToEnd(), m_check_process.StandardError.ReadToEnd());
@@ -580,7 +616,9 @@ namespace sensu_client.net
                     }
                     catch (Exception ex)
                     {
-                        check["output"] = string.Format("Unexpected error: {0}", ex.Message);
+                        Log.Error(ex, ex.Message);
+
+                        check["output"] = "Unexpected error";
                         check["status"] = 2;
                     }
                     finally
@@ -630,6 +668,8 @@ namespace sensu_client.net
             catch (Exception ex)
             {
                 Log.Error(ex, ex.Message);
+                check["output"] = "Unkndown error!";
+                check["status"] = 2;
             }
 
             finally
@@ -677,6 +717,12 @@ namespace sensu_client.net
             }
 
             RabbitMQConnection.Close();
+
+            Log.Info("Unloading Plugins...");
+
+            m_program_base.UnloadPlugins();
+
+            Log.Info("Done!");
 
             base.OnStop();
         }
@@ -764,7 +810,9 @@ namespace sensu_client.net
 
                     Log.Debug("Payload Data: {0}", JsonConvert.SerializeObject(m_check, SerializerSettings));
 
-                    ProcessCheck(m_check);
+                    Task.Factory.StartNew(() => ProcessCheck(m_check));
+
+                    Log.Debug("Process Check fired!");
 
                 }
                 else
